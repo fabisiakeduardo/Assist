@@ -200,6 +200,13 @@ export function EmployeeChat() {
       <div className="chat-main">
         <div className="chat-col">
           <div className="messages scroll-thin" ref={scrollRef}>
+            {!conv && !error && (
+              <>
+                <div className="msg agent"><div className="bubble skeleton" style={{ width: "58%", height: 54 }} /></div>
+                <div className="msg user"><div className="bubble skeleton" style={{ width: "36%", height: 42 }} /></div>
+                <div className="msg agent"><div className="bubble skeleton" style={{ width: "66%", height: 68 }} /></div>
+              </>
+            )}
             {messages.map((m) => (
               <MessageView
                 key={m.id}
@@ -266,7 +273,11 @@ export function EmployeeChat() {
               </form>
             )}
             <div className="composer-meta">
-              <span>{conv?.status === "with_analyst" ? "Você está falando com um analista" : ""}</span>
+              <span>
+                {conv?.status === "with_analyst"
+                  ? `Você está falando com ${conv.analystName ?? "um analista"} · analista`
+                  : ""}
+              </span>
               <span>
                 {usage ? `${usage.used}/${usage.limit}` : "–/30"} mensagens hoje
               </span>

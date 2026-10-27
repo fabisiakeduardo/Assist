@@ -39,10 +39,13 @@ export function Console() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
 
+  const [listLoading, setListLoading] = useState(true);
+
   const loadList = useCallback(async () => {
     const r = await api.consoleConversations(filter === "all" ? undefined : filter, q || undefined);
     setItems(r.items);
     setCounts(r.counts);
+    setListLoading(false);
   }, [filter, q]);
 
   useEffect(() => {
@@ -135,16 +138,18 @@ export function Console() {
           </div>
         </div>
         <div className="cl-items scroll-thin">
-          {items.map((c) => (
-            <ConversationItem
-              key={c.id}
-              c={c}
-              me={user}
-              active={c.id === activeId}
-              onClick={() => setActiveId(c.id)}
-            />
-          ))}
-          {items.length === 0 && (
+          {listLoading
+            ? Array.from({ length: 5 }).map((_, i) => <ConversationItemSkeleton key={i} />)
+            : items.map((c) => (
+                <ConversationItem
+                  key={c.id}
+                  c={c}
+                  me={user}
+                  active={c.id === activeId}
+                  onClick={() => setActiveId(c.id)}
+                />
+              ))}
+          {!listLoading && items.length === 0 && (
             <div className="empty-state" style={{ padding: 24 }}>
               <span className="small">Nenhuma conversa neste filtro.</span>
             </div>
@@ -194,6 +199,19 @@ function FilterPill({
       {label}
       {count !== undefined && count > 0 && <span className="count">{count}</span>}
     </button>
+  );
+}
+
+function ConversationItemSkeleton() {
+  return (
+    <div className="cl-item skeleton-item" aria-hidden="true">
+      <span className="skeleton av" />
+      <div className="text">
+        <span className="skeleton line" style={{ width: "55%" }} />
+        <span className="skeleton line" style={{ width: "82%" }} />
+        <span className="skeleton tag" />
+      </div>
+    </div>
   );
 }
 
@@ -519,6 +537,7 @@ function ConsoleMessage({ m, analystName }: { m: Message; analystName: string })
 function TicketPanel({ conv }: { conv: ConsoleConversation }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [counts, setCounts] = useState({ open: 0, closed: 0 });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
@@ -526,8 +545,12 @@ function TicketPanel({ conv }: { conv: ConsoleConversation }) {
       .then((r) => {
         setTickets(r.tickets);
         setCounts({ open: r.openCount, closed: r.closedCount });
+        setLoading(false);
       })
-      .catch(() => setTickets([]));
+      .catch(() => {
+        setTickets([]);
+        setLoading(false);
+      });
   }, [conv.userId]);
 
   const current = useMemo(
@@ -554,7 +577,13 @@ function TicketPanel({ conv }: { conv: ConsoleConversation }) {
           </div>
         )}
         <div className="tp-label">Desta conversa</div>
-        {current ? (
+        {loading ? (
+          <div className="current-ticket" aria-hidden="true">
+            <span className="skeleton line" style={{ width: "40%" }} />
+            <span className="skeleton line" style={{ width: "85%" }} />
+            <span className="skeleton line" style={{ width: "60%" }} />
+          </div>
+        ) : current ? (
           <div className="current-ticket">
             <div className="row">
               <span className="num">{current.id}</span>

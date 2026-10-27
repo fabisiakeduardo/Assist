@@ -49,6 +49,7 @@ export interface Conversation {
   id: string;
   userId: string;
   analystId: string | null;
+  analystName: string | null;
   status: ConversationStatus;
   queue: "N1" | "N2" | null;
   handoffSummary: string | null;

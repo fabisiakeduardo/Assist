@@ -367,6 +367,13 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
       text: `Devolvida ao Nexo Assist`,
     });
     hub.publish({ type: "message", conversationId: conv.id, message: sys });
+    // o agent retoma visivelmente — regra "agent pausado → volta a atender"
+    const back = store.addMessage({
+      conversationId: conv.id,
+      sender: "agent",
+      text: `Estou de volta! O ${u.name.split(" ")[0]} já cuidou do seu caso. Se ficou alguma dúvida ou surgiu algo novo de TI, me conta.`,
+    });
+    hub.publish({ type: "message", conversationId: conv.id, message: back });
     hub.publish({ type: "conversation", conversationId: conv.id });
     return { conversation: conversationDto(store, store.conversation(conv.id)!) };
   });
@@ -469,6 +476,7 @@ function conversationDto(store: Store, c: Conversation) {
     id: c.id,
     userId: c.userId,
     analystId: c.analystId,
+    analystName: c.analystId ? (store.userById(c.analystId)?.name ?? null) : null,
     status: c.status,
     queue: c.queue,
     handoffSummary: c.handoffSummary,
