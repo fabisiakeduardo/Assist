@@ -13,6 +13,7 @@
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspaces --if-present",
     "test": "npm run test -w apps/api",
+    "eval": "npm run eval -w apps/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:reset": "node -e \"for (const f of ['apps/api/data/nexo.db','apps/api/data/nexo.db-wal','apps/api/data/nexo.db-shm']) require('node:fs').rmSync(f,{force:true})\""
   },

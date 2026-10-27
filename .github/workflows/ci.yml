@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck (api + web)
+        run: npm run typecheck
+
+      - name: Testes unitários e de API
+        run: npm test
+
+      - name: Avaliação de cenários do agent
+        run: npm run eval --workspace=apps/api
+
+      - name: Build (api + web)
+        run: npm run build
