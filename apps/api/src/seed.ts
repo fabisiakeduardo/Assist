@@ -77,7 +77,7 @@ export function seed(store: Store): void {
   });
 
   // ── Analistas ─────────────────────────────────────────────────────────────
-  store.insertUser({
+  const rafael = store.insertUser({
     email: "rafael.lima@nexo.com.br",
     name: "Rafael Lima",
     role: "analyst",
@@ -86,7 +86,7 @@ export function seed(store: Store): void {
     avatarBg: "#DCE9F7",
     avatarFg: "#0062C4",
   });
-  store.insertUser({
+  const joana = store.insertUser({
     email: "joana.prado@nexo.com.br",
     name: "Joana Prado",
     role: "analyst",
@@ -95,6 +95,12 @@ export function seed(store: Store): void {
     avatarBg: "#E6E1F7",
     avatarFg: "#5B3FC4",
   });
+
+  // Senha demo "nexo123" para todos — usada quando AUTH_ANY_PASSWORD=false.
+  // Enquanto a flag está ligada (spec do desafio), qualquer senha entra.
+  for (const u of [ana, bruno, carla, diego, elisa, fabio, gabriela, rafael, joana]) {
+    store.setPassword(u.id, "nexo123");
+  }
 
   // ── Central de ajuda ──────────────────────────────────────────────────────
   const articles: Array<[string, string, string, string[]]> = [

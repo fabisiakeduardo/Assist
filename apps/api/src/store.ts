@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type {
   AgentStep,
@@ -146,6 +146,25 @@ export class Store {
       )
       .run(userId, u.email, u.name, u.role, u.team, u.supportLevel, u.avatarBg, u.avatarFg);
     return this.userById(userId)!;
+  }
+
+  /** Grava hash scrypt (formato "salt$hash" em hex). */
+  setPassword(userId: string, password: string): void {
+    const salt = randomBytes(16).toString("hex");
+    const hash = scryptSync(password, salt, 64).toString("hex");
+    this.db.prepare("UPDATE users SET password_hash=? WHERE id=?").run(`${salt}$${hash}`, userId);
+  }
+
+  /** Verifica senha com comparação em tempo constante. */
+  verifyPassword(userId: string, password: string): boolean {
+    const r = this.db.prepare("SELECT password_hash FROM users WHERE id=?").get(userId) as
+      | { password_hash: string | null }
+      | undefined;
+    if (!r?.password_hash) return false;
+    const [salt, expected] = r.password_hash.split("$");
+    if (!salt || !expected) return false;
+    const actual = scryptSync(password, salt, 64);
+    return timingSafeEqual(actual, Buffer.from(expected, "hex"));
   }
 
   createSession(userId: string): string {

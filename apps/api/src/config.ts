@@ -41,6 +41,12 @@ export const config = {
   dailyMessageLimit: num("DAILY_MESSAGE_LIMIT", 30),
   /** Janela (dias) em que um chamado resolvido pode ser reaberto (Anexo A). */
   reopenWindowDays: 7,
+  /**
+   * Spec do desafio: login aceita qualquer senha para os funcionários de
+   * exemplo. Em produção (AUTH_ANY_PASSWORD=false) a senha scrypt do usuário
+   * é verificada de verdade.
+   */
+  authAnyPassword: (process.env.AUTH_ANY_PASSWORD ?? "true") !== "false",
 } as const;
 
 export function hasLlmKey(): boolean {

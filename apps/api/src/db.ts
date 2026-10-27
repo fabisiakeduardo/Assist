@@ -38,6 +38,7 @@ function migrate(d: DatabaseSync): void {
       support_level TEXT CHECK (support_level IN ('N1','N2')),
       avatar_bg TEXT NOT NULL DEFAULT '#DCE9F7',
       avatar_fg TEXT NOT NULL DEFAULT '#0062C4',
+      password_hash TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -141,4 +142,10 @@ function migrate(d: DatabaseSync): void {
       next INTEGER NOT NULL
     );
   `);
+
+  // migração incremental: bancos antigos não tinham password_hash
+  const userCols = d.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+  if (!userCols.some((c) => c.name === "password_hash")) {
+    d.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  }
 }

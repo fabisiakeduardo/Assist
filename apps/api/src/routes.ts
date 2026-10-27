@@ -25,6 +25,21 @@ interface RouteDeps {
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+// ── throttle de login (proteção no deploy público) ──────────────────────────
+const LOGIN_WINDOW_MS = 5 * 60_000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const loginBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function allowLoginAttempt(ip: string): boolean {
+  const now = Date.now();
+  const b = loginBuckets.get(ip);
+  if (!b || now >= b.resetAt) {
+    loginBuckets.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return true;
+  }
+  return ++b.count <= LOGIN_MAX_ATTEMPTS;
+}
+
 export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   const { store, tickets, help, runner, hub } = deps;
   const services = { store, tickets, help };
@@ -32,6 +47,12 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
   // ── auth ──────────────────────────────────────────────────────────────────
 
   app.post("/auth/login", async (req, reply) => {
+    if (!allowLoginAttempt(req.ip)) {
+      return reply.code(429).send({
+        error: "too_many_attempts",
+        detail: "Muitas tentativas de login — aguarde alguns minutos.",
+      });
+    }
     const body = z
       .object({ email: z.string().email(), password: z.string().min(1) })
       .safeParse(req.body);
@@ -42,7 +63,10 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     if (!user) {
       return reply.code(401).send({ error: "unknown_user", detail: "Esse e-mail não tem acesso ao service desk." });
     }
-    // desafio: qualquer senha vale para os funcionários de exemplo
+    // spec do desafio: qualquer senha entra; com AUTH_ANY_PASSWORD=false, valida o hash
+    if (!config.authAnyPassword && !store.verifyPassword(user.id, body.data.password)) {
+      return reply.code(401).send({ error: "invalid_password", detail: "Senha incorreta." });
+    }
     const token = store.createSession(user.id);
     void reply.setCookie(SESSION_COOKIE, token, {
       path: "/",
