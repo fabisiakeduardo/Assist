@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
 import type { Store } from "./store.js";
 import type { User } from "./domain/types.js";
 
@@ -25,6 +26,19 @@ export async function buildServer(deps: AppDeps): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: true,
     credentials: true,
+  });
+  // headers de segurança — a SPA usa style inline nos componentes, liberado aqui
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
   });
   await app.register(cookie);
 

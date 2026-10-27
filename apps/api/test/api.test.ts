@@ -25,7 +25,7 @@ function cookieOf(res: { cookies: Array<{ name: string; value: string }> }): str
 async function login(email: string): Promise<string> {
   const res = await app.inject({
     method: "POST",
-    url: "/auth/login",
+    url: "/api/auth/login",
     payload: { email, password: "demo" },
   });
   expect(res.statusCode).toBe(200);
@@ -41,7 +41,13 @@ beforeAll(async () => {
   const engine = new ScriptedEngine({ stepMs: 0, wordMs: 0 });
   const runner = new AgentRunner({ store, tickets, help }, engine, hub);
   app = await buildServer({ store });
-  registerRoutes(app, { store, tickets, help, runner, hub, engineKind: "scripted" });
+  // mesma montagem da produção: rotas sob /api
+  await app.register(
+    async (api) => {
+      registerRoutes(api, { store, tickets, help, runner, hub, engineKind: "scripted" });
+    },
+    { prefix: "/api" },
+  );
   await app.ready();
 });
 
@@ -53,7 +59,7 @@ describe("auth", () => {
   it("login com e-mail corporativo cria sessão", async () => {
     const res = await app.inject({
       method: "POST",
-      url: "/auth/login",
+      url: "/api/auth/login",
       payload: { email: "ana.souza@nexo.com.br", password: "x" },
     });
     expect(res.statusCode).toBe(200);
@@ -65,14 +71,14 @@ describe("auth", () => {
   it("e-mail desconhecido → 401", async () => {
     const res = await app.inject({
       method: "POST",
-      url: "/auth/login",
+      url: "/api/auth/login",
       payload: { email: "ninguem@nexo.com.br", password: "x" },
     });
     expect(res.statusCode).toBe(401);
   });
 
   it("sem sessão → 401 em rotas protegidas", async () => {
-    const res = await app.inject({ method: "GET", url: "/conversations/current" });
+    const res = await app.inject({ method: "GET", url: "/api/conversations/current" });
     expect(res.statusCode).toBe(401);
   });
 
@@ -80,7 +86,7 @@ describe("auth", () => {
     const cookie = await login("ana.souza@nexo.com.br");
     const res = await app.inject({
       method: "GET",
-      url: "/console/conversations",
+      url: "/api/console/conversations",
       headers: { cookie },
     });
     expect(res.statusCode).toBe(403);
@@ -95,7 +101,7 @@ describe("privacidade de chamados", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: `/tickets/${foreign.id}`,
+      url: `/api/tickets/${foreign.id}`,
       headers: { cookie },
     });
     expect([403, 404]).toContain(res.statusCode);
@@ -108,7 +114,7 @@ describe("privacidade de chamados", () => {
 
     const res = await app.inject({
       method: "GET",
-      url: `/tickets/${mine.id}`,
+      url: `/api/tickets/${mine.id}`,
       headers: { cookie },
     });
     expect(res.statusCode).toBe(200);
@@ -119,8 +125,8 @@ describe("privacidade de chamados", () => {
 describe("conversa e limite de uso", () => {
   it("current cria/reusa conversa ativa", async () => {
     const cookie = await login("ana.souza@nexo.com.br");
-    const r1 = await app.inject({ method: "GET", url: "/conversations/current", headers: { cookie } });
-    const r2 = await app.inject({ method: "GET", url: "/conversations/current", headers: { cookie } });
+    const r1 = await app.inject({ method: "GET", url: "/api/conversations/current", headers: { cookie } });
+    const r2 = await app.inject({ method: "GET", url: "/api/conversations/current", headers: { cookie } });
     expect(r1.json().conversation.id).toBe(r2.json().conversation.id);
   });
 
@@ -133,7 +139,7 @@ describe("conversa e limite de uso", () => {
     const conv = store.activeConversationFor(carla.id) ?? store.createConversation(carla.id);
     const res = await app.inject({
       method: "POST",
-      url: `/conversations/${conv.id}/messages`,
+      url: `/api/conversations/${conv.id}/messages`,
       headers: { cookie },
       payload: { text: "ainda tem limite?" },
     });
@@ -145,21 +151,21 @@ describe("conversa e limite de uso", () => {
 describe("fluxo de rascunho via HTTP", () => {
   it("rascunho confirmado pela rota cria o chamado", async () => {
     const cookie = await login("diego.ramos@nexo.com.br");
-    const convRes = await app.inject({ method: "GET", url: "/conversations/current", headers: { cookie } });
+    const convRes = await app.inject({ method: "GET", url: "/api/conversations/current", headers: { cookie } });
     const convId = convRes.json().conversation.id as string;
 
     // dirige a conversa até um rascunho existir (engine roda async no servidor)
     async function send(text: string) {
       await app.inject({
         method: "POST",
-        url: `/conversations/${convId}/messages`,
+        url: `/api/conversations/${convId}/messages`,
         headers: { cookie },
         payload: { text },
       });
       // espera o turno do agent terminar (fila serial por conversa)
       for (let i = 0; i < 40; i++) {
         await new Promise((r) => setTimeout(r, 50));
-        const c = await app.inject({ method: "GET", url: `/conversations/${convId}`, headers: { cookie } });
+        const c = await app.inject({ method: "GET", url: `/api/conversations/${convId}`, headers: { cookie } });
         const msgs = c.json().messages as Array<{ sender: string }>;
         if (msgs[msgs.length - 1]?.sender === "agent") return c.json();
       }
@@ -174,7 +180,7 @@ describe("fluxo de rascunho via HTTP", () => {
     const draftId = withDraft.pendingDraft.id as string;
     const confirm = await app.inject({
       method: "POST",
-      url: `/conversations/${convId}/drafts/${draftId}/confirm`,
+      url: `/api/conversations/${convId}/drafts/${draftId}/confirm`,
       headers: { cookie },
       payload: {},
     });

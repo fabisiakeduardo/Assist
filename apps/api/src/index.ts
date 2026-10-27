@@ -1,3 +1,7 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import fastifyStatic from "@fastify/static";
 import { config, hasLlmKey } from "./config.js";
 import { getDb } from "./db.js";
 import { Store } from "./store.js";
@@ -12,6 +16,8 @@ import { buildServer } from "./server.js";
 import { registerRoutes } from "./routes.js";
 
 // ─── bootstrap ───────────────────────────────────────────────────────────────
+
+const here = path.dirname(fileURLToPath(import.meta.url)); // src/ (dev) ou dist/ (build)
 
 const store = new Store(getDb());
 seed(store);
@@ -31,7 +37,27 @@ const engine =
 const runner = new AgentRunner({ store, tickets, help }, engine, hub);
 
 const app = await buildServer({ store });
-registerRoutes(app, { store, tickets, help, runner, hub, engineKind });
+
+// API inteira sob /api — dev (proxy do Vite) e produção usam o mesmo caminho
+await app.register(
+  async (api) => {
+    registerRoutes(api, { store, tickets, help, runner, hub, engineKind });
+  },
+  { prefix: "/api" },
+);
+
+// modo produção: se o build do front existe, a API serve a SPA (deploy único)
+const webDist = path.resolve(here, "../../web/dist");
+if (existsSync(webDist)) {
+  await app.register(fastifyStatic, { root: webDist });
+  app.setNotFoundHandler((req, reply) => {
+    if (req.url.startsWith("/api/") || req.url === "/health") {
+      return reply.code(404).send({ error: "not_found" });
+    }
+    return reply.sendFile("index.html"); // SPA fallback (React Router)
+  });
+  console.log(`[nexo-api] servindo o build do web em ${webDist}`);
+}
 
 try {
   await app.listen({ port: config.port, host: config.host });

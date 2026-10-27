@@ -6,10 +6,10 @@ export default defineConfig({
   server: {
     port: 5100,
     proxy: {
+      // mantém /api — a API expõe as rotas sob esse prefixo em dev e produção
       "/api": {
         target: "http://localhost:4100",
         changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, ""),
       },
     },
   },

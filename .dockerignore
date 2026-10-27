@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+**/dist
+apps/api/data
+**/.env
+.git
+.gitignore
+nexo
+prd.txt
+Dockerfile
+.dockerignore
