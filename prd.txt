@@ -1,0 +1,342 @@
+Desafio Técnico: Nexo Assist, o agent do service desk de TI
+Desafio Técnico: Nexo Assist, o agent do service desk de TI
+
+Desafio Técnico: Nexo Assist, o agent do
+Desafio Técnico: Nexo Assist, o agent do
+service desk de TI
+sPReDrdovdiecsaefio pdráeticosdko prdoceessoTsIeletivo
+
+PRD do desafio prático do processo seletivo
+
+Contexto e objetivo
+CA Noenxtoeéxutmoaeemopbrejseatcivomocerca de 2.000 funcionários. Quando algo de TI dá errado, ou quando
+
+AalgNueéxmo péreucmisaaedmepuremsacceosmsoceorucaeqdueip2a.m00e0ntfou,nociofunnácrions.áQriouanbdreo uamlgochdaemTaIddoáneorrsaedrov,icoeudqeusakn.dHooje
+aislsgouéémfepitroecpiosrafodremuumláraioce, sesoo roeusuelqtaudipoaémceonntoh,eocidfuon:cciohnaámraiodaobsraebuemrtocshpaamraddoúnviodasserqvuiceeadeceskn.trHaol djee
+iasjsuodaé jfáeirteosppoornfdoerm, cuhláarmioa,deoos dreuspulilctaaddoosé, cporinohriedcaideo:ecrhraadmaa, dinofsorambaeçrtõoesspfarltaanddúovideaasnqauliestascgeanstrtaalnddeo
+abjouadapajárteredsopodniadec,ocmhatrmiaagdeoms. duplicados, prioridade errada, informações faltando e analistas gastando
+boa parte do dia com triagem.
+A Nexo quer o Nexo Assist: um agent de atendimento num chat. O funcionário descreve o que está
+AacNonetxeoceqnudeor ocoNmexaos Aprsóspisrita:supmalaagveranst,deeoataegnednimt ceonntosunltuamoschcahta. mOafduonsciodneáler,iobudsecsacrneaveceonqtruael deestaájuda,
+acborentoeuceantudaoliczoamchaasmparódporsiaescphaalamvarausm, eaonaalgisetantqcuoannsduoltaproescicshaa. mados dele, busca na central de ajuda,
+abre ou atualiza chamados e chama um analista quando precisa.
+O sucesso será medido por:
+O sucesso será medido por:
+· Resolução sem fila: dúvidas e consultas resolvidas no próprio chat.
+· RCehsaomluaçdãoos sbeemm failbae:rdtoúsvi:dcaosmepcleotnossu, lctaosmretispool,vcidaatesgnooripareópprrioiorcihdatd.e corretos, e sem duplicidade.
+· CEnhcaammaidnohsambeemntaobceerrttoos::ocoqmueplperteocsi,scaodme tuipmoa, cpaetsesgooariacheepgraioariodadnealcisotarrentaosh,oerasecemrtdaueplcicoimdade.
+· Econnctaemxtoinshuafmicieenntoe.certo: o que precisa de uma pessoa chega ao analista na hora certa e com
+· cToranntesxptoarsêunficciiae:nétep. ossível entender o que o agent fez e por quê em cada resposta.
+· Transparência: é possível entender o que o agent fez e por quê em cada resposta.
+
+Usuários e histórias
+UO susuuáárrioioprsinceiphaliésotófurniacisonário da Nexo, que entra com o e-mail corporativo. Como funcionário, eu
+
+Oquuesrou:ário principal é o funcionário da Nexo, que entra com o e-mail corporativo. Como funcionário, eu
+quero:
+1 Tirar uma dúvida sem precisar abrir chamado.
+12 TSiarabreur mcoamdoúveisdtaá suemmcphraemciasdaor amberiur,cmhaemsmadoos.em lembrar o número, e saber se ele está atrasado.
+23 SCaobmeprlecmomenotaerstuámumchcahmaamdaodaobmeretou,cmomesnmoovasseminfloermmbarçaõreos.número, e saber se ele está atrasado.
+34 CAbormirpulemmcehnatmaraudmo scóhacmonavdeorsaabnedrtoo, comnfenroinvdaos oinsfodramdaoçsõaenst.es de ele ser criado.
+45 AFablrairr ucmomchuammaandaolisótacqounavnedrsoaenudop,recofenrfier roinudqouoasnddoadoopsroabnlteems adefoerlegrsaevrec. riado.
+56 FVaolatarrcooumtroumdiaaneacliosntatinquuaarndeo oenudperepfaerreiri.ou quando o problema for grave.
+6 Voltar outro dia e continuar de onde parei.
+Do outro lado está o analista do service desk (Suporte N1 e N2). Ele recebe os chamados criados pelo
+Dagoeonut teroalsadconevsetársoasatnranlissfteariddoass.eCrovmicoe adneaslkis(taS,uepuorqteueNr1o:e N2). Ele recebe os chamados criados pelo
+agent e as conversas transferidas. Como analista, eu quero:
+1 Receber chamados com tipo, categoria e prioridade corretos e uma descrição que não exija perguntar
+1 Rtuedcoedbeerncohvaom. ados com tipo, categoria e prioridade corretos e uma descrição que não exija perguntar
+2 tVuedroadsecnoonvoe.rsas que precisam de mim, incluindo os casos em que o agent não teve segurança para
+2 Vdeecriadsir.conversas que precisam de mim, incluindo os casos em que o agent não teve segurança para
+3 dAescsiudmir.ir uma conversa, com o agent pausado enquanto eu atendo, e devolvê-la ao agent ou
+3 Aenscseurmráir-luamqauacnodnovetersrma,incaorm. o agent pausado enquanto eu atendo, e devolvê-la ao agent ou
+
+    encerrá-la quando terminar.
+As histórias 2 e 3 do analista são atendidas pelo console do analista.
+As histórias 2 e 3 do analista são atendidas pelo console do analista.
+
+O agent deve seguir as regras do service desk (Anexo A) e usar a central de ajuda e os chamados
+Oexaisgteennttedse. vOessiestgeumiraadserecghraams addoosseérvliecgeaddeoske,(Adenevxeoz Aem) equusaanrdao,cfeicnatrainlddiespaojundívaelepoosr cahlgaumnasdsoesgundos.
+existentes. O sistema de chamados é legado e, de vez em quando, fica indisponível por alguns segundos.
+
+Beyond the Bytes · Processo seletivo                         Página 1
+Beyond the Bytes · Processo seletivo                         Página 1
+Desafio Técnico: Nexo Assist, o agent do service desk de TI
+Desafio Técnico: Nexo Assist, o agent do service desk de TI
+
+O que construir
+OO pqroutóetipco o(AnnesxtoruC)irmostra as telas e o comportamento esperado. Ele é a referência visual: siga o
+
+Olayporuottóetiopoes(Atilnoe, xcoomC)limbeorsdtaradeasnotesladseetaolhecos.mportamento esperado. Ele é a referência visual: siga o
+layout e o estilo, com liberdade nos detalhes.
+
+1 Login (Tela 1): e-mail corporativo e senha, aceitando os funcionários dos seus dados de
+
+1 Lexoegminp(loTecloam1)q:uea-mlquaeilrcsoerpnohraa.tivo e senha, aceitando os funcionários dos seus dados de
+
+2 eCxheamt pdloo fcuonmciqounaálqriuoe(rTseelansha2. e 3): conversa com o Nexo Assist, respostas em tempo real, cards de
+
+2 Cchhaamt addoof,usnecleioçnãoárdioe (cThealmasad2oe, r3a)s: ccuonnhvoerpsaarcaocmonofirNmeaxçoãAos, spiesrt,gruenstpaossctoams eompçtõeemsproápreidaal,scearldimsidteede
+    c3h0ammeandsoa,gseenlesçpãoor dseescshãaom. ado, rascunho para confirmação, perguntas com opções rápidas e limite de
+
+3 3O0amgenst:adgecnisdepoorqsueessfaãzoe. r a cada mensagem, usando a central de ajuda e o serviço de chamados, e
+
+3 Oseagguienndto: daescriedgeraosqduoe AfanzeexroaAc.ada mensagem, usando a central de ajuda e o serviço de chamados, e
+
+4 sSeegruvinçdoodaescrheagmraasddoosAsnimexuolaAd. o: com dados de exemplo criados por você (veja o Anexo B),
+
+4 Sseepravriçaododdeocahgaemnat,dpoesrmsiimtinudloadcoon: scuolmtard, acdrioasr,daetueaxliezmarpelotrcarinasdfoesrirpcohravmocaêdo(vse. ja o Anexo B),
+
+5 sTerapnasrafedroêdnociaagpeanrt,apaenrmaliitsintad:oacoconnsuveltarsra, cfriciaar,maaturcaalidzarceomtraonasgfeurairrdcahnadmoadaotesn.dente, e o agent para
+
+5 Tderarnessfpeornêdnecriaatpéasrearalinbaelriasdtao:. a conversa fica marcada como aguardando atendente, e o agent para
+
+6 dCeonressoploenddoeraantaélissetar l(ibTeerlaadso4. e 5): lista de conversas com filtros e status, histórico da conversa,
+
+assumir o atendimento (com o agent pausado), devolver ao agent e encerrar, e o painel com os
+
+7 Vchisaimbialiddoasddeodfausncdioencáisrõioe. s: acima de cada resposta, o protótipo mostra as ações do agent ("consultou
+
+7 Vseisuisbiclhidaamdaeddoass", d"celacsissõifeicso:uaacipmraiordideacdaed"a). rAelsépmosdtias,soo,pdroetvóetipseormpoosstsríavealsvaeçrõeems ddeotaalgheenot (q"cuoenosultou
+    saeguesntcehnatmenaddeous,",q"ucelaassçiãfiocotoumaopur,iocroidmadqeu"e).gAraléumddeissseog,udraenvçeaseerppoorsqsuívêe. lOvefor remmatdoedtaelshseeodqeutaelhoe é
+    alivgreen(teexnptaennddier ua,sqauçeõaeçsã, opatoinmelolua,tecroaml oquuleoggreasutrduetusraedgou)r,adneçsadeepqoureqsueêj.aOfáfcoilrmdeatloerd. eEssstea déeataplhaerteé
+    lmivareis(iemxppoarntadnirteasdaoçdõeessa, fpioa.inel lateral ou log estruturado), desde que seja fácil de ler. Esta é a parte
+
+mais importante do desafio.
+
+Requisitos técnicos
+
+Requisitos técnicos
+Tema               Requisito
+
+Tema               Requisito
+Linguagem          TypeScript, com tipagem estrita
+
+Linguagem          TypeScript, com tipagem estrita
+Agent              Mastra (preferência) ou LangGraph.js
+
+Agent              Mastra (preferência) ou LangGraph.js
+Modelo             Qualquer provedor de LLM; explique a escolha no README
+
+Modelo             Qualquer provedor de LLM; explique a escolha no README
+Interface          Seguir o protótipo do Anexo C (sugestão: Next.js ou React)
+
+Interface          Seguir o protótipo do Anexo C (sugestão: Next.js ou React)
+Dados              Serviço de chamados simulado, separado do agent
+
+Dados              Serviço de chamados simulado, separado do agent
+Persistência       Conversas, chamados e o estado de cada conversa (com o agent ou com um analista)
+Persistência       devem sobreviver a um reinício da aplicação
+Execução           Conversas, chamados e o estado de cada conversa (com o agent ou com um analista)
+                   devem sobreviver a um reinício da aplicação
+                   Rodar localmente com poucos comandos, documentados no README, e um .env.example
+
+Execução           Rodar localmente com poucos comandos, documentados no README, e um .env.example
+
+Também esperamos:
+
+T· amAbrqémuiteestuperaracmlaorsa:: separação entre interface, agent e serviços, com decisões justificadas.
+
+· ABroqausitpertáutriacacsla: rcaó:dsigeopaorragçaãnoizeandtore, tiensteterfsaocen,daegfeanzet me sdeifrevriçeonsç,ac, otrmatadmeceisnõtoesdejuestrirfoicsaedacso.mmits que
+· Bcoonatsempraáthicisatósr:iacóddoigdoeosergnavnoilzvaimdoe,ntteos. tes onde fazem diferença, tratamento de erros e commits que
+· cEofinctieêmncaiah:isretósrpiaosdtoasderáspeindvaoslveimuseontcoo. nsciente do modelo, pensando em custo por conversa.
+
+· ESfeigciuêrnacniçaa: reespproivsatacsidraádpeid:acshaevuessofocroansdcoiecnótdeigdoo emcohdaemloa, dpoesnsdaenudmo efumncciuosntáoripoonrucnocnaveerxspao.stos a
+· Souetgrou.rança e privacidade: chaves fora do código e chamados de um funcionário nunca expostos a
+
+    outro.
+
+Beyond the Bytes · Processo seletivo                                                                                                                    Página 2
+Beyond the Bytes · Processo seletivo                                                                                                                    Página 2
+ Diferenciais
+DeDsaiffioeTréecnnicoc: NiaexiosAssist, o agent do service desk de TI
+
+D· iDfeerpelony:cpiuabilsicar a aplicação e enviar o link, para que possamos testar sem rodar o projeto localmente.
+
+    Pode ser em qualquer plataforma (Vercel, Railway, Fly.io, Render ou outra). Se fizer, proteja as chaves
+· Deploy: publicar a aplicação e enviar o link, para que possamos testar sem rodar o projeto localmente.
+
+    e limite o uso para evitar abuso e custo inesperado, e explique no README como fez o deploy.
+    Pode ser em qualquer plataforma (Vercel, Railway, Fly.io, Render ou outra). Se fizer, proteja as chaves
+
+    e limite o uso para evitar abuso e custo inesperado, e explique no README como fez o deploy.
+
+·EnDterpelogyá: vpuebilsicaer aaavpaliclaiçaãçoãeoenviar o link, para que possamos testar sem rodar o projeto localmente.
+
+EOnqPtuoredeeegsnáetrrveeegmiasqruealqauveraplliaataçfoãrmoa (Vercel, Railway, Fly.io, Render ou outra). Se fizer, proteja as chaves
+
+    e limite o uso para evitar abuso e custo inesperado, e explique no README como fez o deploy.
+O1 qLuinek ednotrreepgoasritório no GitHub (público ou com acesso liberado para nós).
+
+2 README com: como rodar, visão geral da arquitetura, como o agent decide o que fazer, como você
+
+DE1 niLfteinrrkeedgnoácrveipaeoiisssitóerioanvoaGliitHauçbã(opúblico ou com acesso liberado para nós).
+
+    garantiu a qualidade dessas decisões, principais trade-offs e o que faria com mais tempo.
+2 README com: como rodar, visão geral da arquitetura, como o agent decide o que fazer, como você
+O3 qgLuainerkanedtnoiutdraeepgqluaoayrl,idsaedteivedresfesiatos. decisões, principais trade-offs e o que faria com mais tempo.
+
+13UsoLLiidnnkke ddIAoo:rdpeeoppdoloesyite,ósrdieoevtnievoeuGrsfiaetHritfuoeb.rr(apmúbelnictaosoduecIoAmpacraespsroglirbaemraadr.oNpaareanntróesv)is. ta, vamos conversar sobre o
+
+·2UcósdoDRigeEdopeAelDoIApyM:e:Edppiourcdbopelmeicqe:aucrdeoaenmvaaeospulrmiocsadauçardãraf,eonvrçreiasaãemsoneavgnoiaetavrrisavolodld.ienakIAa, rpqpauarirataeqtpuurreoag,prcoaosmmsaaorm.ooNsaagteeesnntttaredrvesicesitmdae,rvooadqmauroeosfapczoroenjrve,etcoroslmaorcoasvlomobcereêntoe.
+códPgigaoordaeentspiueerdaeirqmpueaqqluiudaealqnduaeesdrmepsluasdtaaasfnodçreamcsaisa(õoVeevsir,vcpoer.li,nRciapialwisaytr,aFdley-.oiof,fsReenodqeureoufaoriuatrcao)m. Smeafiizsetre,mprpoot.eja as chaves
+Como vamos avaliar
+3 eLinlimk idteo odeupsloyp,asrea teivveitrafreaitbou. so e custo inesperado, e explique no README como fez o deploy.
+
+CCormitéoriovamos avaliar                         O que observamos
+Uso de IA: pode e deve usar ferramentas de IA para programar. Na entrevista, vamos conversar sobre o
+
+EcóCQndruitagtérloirdeiaeogdpeáeddvairsepdiescqiuseõeenasavsamluiadaçOnãçaqaoguseenaotobevsnietveronv.daemoosque o funcionário quer e escolhe a ação certa, seguindo as regras
+
+                                             do service desk
+
+OCQoqumauloiedavedanemtdraeosgsdaearcvisaõleiasr  O agent entende o que o funcionário quer e escolhe a ação certa, seguindo as regras
+
+Condução da conversa                              dPoersgeurnvticaeqdueasnkdo falta informação, confirma antes de agir, mantém o contexto e
+1CrLitiénrkiodo repositório no GitHuOrbesq(ppuoúenbdoliebcsodeeorvfuoarcmooamsclaacraesso liberado para nós).
+
+2CoRnEduAçDãMo dEaccoomnv:ecrosamo rodar,Pveisrgãuontgaeqruaal nddaoafarqltuaitineftourrmaa, çcãoom, cooonfiarmgeanatndteesciddeeaogiqr,umeafnatzéemr,occoomntoexvtooceê
+
+QTruaanlsidpaadrêendcaias decisões                OrÉesfaápgcoeilnnvdteeerndeteeenfnodtremnoadqecurlaeoraoqufuenociaogneánritofeqzueer peoersqcuoêlheema caaçdãao rceesrptao,sstaeguindo as regras
+garantiu a qualidade dessas decisões, principais trade-offs e o que faria com mais tempo.
+                                                  do service desk
+
+3TrLaninskpadroêndceiaploy, se tiver feitoÉ. fácil ver e entender o que o agent fez e por quê em cada resposta
+
+Condução da conversa                              Pergunta quando falta informação, confirma antes de agir, mantém o contexto e
+
+UIsnoterdfaeceIA: pode e deve usar ferFeridrsapemolidneadndeteadaseodfoperrmoIAtaótcpiplaaorraae pcuroidgardaomcaorm. Neastaednotrsedveisctaar,rveagammoesnctooenveerrrosar sobre o
+
+código e pedir pequenas mudanças ao vivo.
+
+TIAnrtaqenurfsiatpecateurêranceiaboas práticas    ÉFSiedfápecaliirdlaavçedãreoeadoeenprterosntpdóoetinpr sooaeqbuiclieudiaoddaaedgsoe, nctitopfmaegzeesmtap, dotrorasqtaudmêeeecnmatorrcedagedaaemrrreonsspt,oooesrtgaearnroização e
+
+Como vamos avaliar                                commits
+                                                  Separação de responsabilidades, tipagem, tratamento de erros, organização e
+  Arquitetura e boas práticas
+
+Croimtéurnioicação                                OcColaqmruemeziatosbdoseRrvEaAmDoMsE
+Interface                                         Fidelidade ao protótipo e cuidado com estados de carregamento e erro
+QCDoiufemarlueidnaiccdiaeçisdãaos decisões
+Arquitetura e boas práticas                       OCDelaprgeloezyna.t CdeonotnRetnaEdApeDoonMtqoEuseeoxtrfuans;ciaonaáursioênqcuiaerneãoespceonlhaelizaaação certa, seguindo as regras
+Diferenciais                                      dSoepsaerravçicãeoddeeskresponsabilidades, tipagem, tratamento de erros, organização e
+                                                  cDoemplmoyit.sConta pontos extras; a ausência não penaliza
+
+Condução da conversa                              Pergunta quando falta informação, confirma antes de agir, mantém o contexto e
+Comunicação                                       rCelsapreoznadedodeREfoArmDaMcElara
+
+TDriafenrsepnacriaêinscia                         ÉDefápcloilyv. eCroenetanpteonndtoesr oexqturaeso; aagaeunstêfnecziaenpãoor pqeunêaelimzacada resposta
+
+Beyond the Bytes · Processo seletivo                                                                                                                      Página 3
+
+    Interface                                     Fidelidade ao protótipo e cuidado com estados de carregamento e erro
+Beyond the Bytes · Processo seletivo
+                                                                                                                                                          Página 3
+    Arquitetura e boas práticas
+                                                  Separação de responsabilidades, tipagem, tratamento de erros, organização e
+                                                  commits
+
+BeyConodmtuhneiBcaytçeãso· Processo seletivo Clareza do README                                                                                            Página 3
+
+Diferenciais                                      Deploy. Conta pontos extras; a ausência não penaliza
+
+Beyond the Bytes · Processo seletivo                                                                                                                      Página 3
+Desafio Técnico: Nexo Assist, o agent do service desk de TI
+
+Anexo A: regras do service desk
+
+· Tipos de chamado: incidente (INC), quando algo parou ou não funciona; requisição (REQ), quando é
+    um pedido de acesso, equipamento ou software.
+
+· Categorias: Acesso, Rede e VPN, Hardware, Software, E-mail e Outros.
+· Abertura: todo chamado precisa de título, descrição, tipo, categoria, prioridade e de quem é afetado.
+
+    O agent mostra um rascunho e só cria ou atualiza o chamado depois da confirmação do funcionário.
+· Sem duplicidade: se já existe um chamado aberto sobre o mesmo problema, ele é atualizado, não
+
+    duplicado. Chamados resolvidos há até 7 dias podem ser reabertos.
+· Transferência: acontece quando o funcionário pede, em casos críticos, em chamados vencidos ou
+
+    quando o agent não tem segurança sobre o que fazer. Leva um resumo do caso, e o agent não
+    responde enquanto a conversa está com um analista.
+· Privacidade: informações de um chamado só podem ser passadas a quem o abriu.
+· Escopo: apenas assuntos de TI. Outros assuntos (RH, financeiro, facilities) são redirecionados.
+
+Prioridade e prazos. A prioridade combina o impacto (quantas pessoas são afetadas) e a urgência (se
+há um compromisso em risco). O prazo vale para a primeira resposta e para cada atualização; passado o
+prazo, o chamado está vencido.
+
+Prioridade  Quando usar                                                              Prazo
+Crítica     Algo parado para uma equipe ou para a empresa                            1 hora
+Alta        Impede uma pessoa de trabalhar, ou há um compromisso no mesmo dia        4 horas úteis
+Média       Atrapalha, mas há alternativa                                            3 dias úteis
+Baixa       Pedidos e melhorias sem urgência                                         5 dias úteis
+
+Anexo B: dados de exemplo
+
+Crie seus próprios dados: alguns funcionários, de 5 a 10 artigos curtos para a central de ajuda e
+chamados em situações variadas (aberto, vencido, resolvido recentemente, de outros funcionários).
+Alguns exemplos:
+
+· Artigo: "VPN com erro 809: reinstale o cliente de VPN pelo portal de softwares e reinicie o
+    computador. Vale apenas para Windows 10; no Windows 11, abra um chamado."
+
+· Artigo: "Horário do service desk: de segunda a sexta, das 8h às 18h. Chamados críticos têm plantão
+    24 horas."
+
+Chamado     Título                    Categoria              Prioridade  Status      Última atualização
+INC-20311                             Hardware               Média                   Há 6 dias
+REQ-10442   Notebook lento após       Hardware                           Aguardando  Há 1 semana
+INC-20150   atualização do Windows    Acesso                 Baixa       analista    Há 4 dias
+
+            Segundo monitor para                                         Aprovado
+            home office
+                                                             Média       Resolvido
+            Senha do SAP
+            bloqueada
+
+Beyond the Bytes · Processo seletivo                                                 Página 4
+Desafio Técnico: Nexo Assist, o agent do service desk de TI
+
+Anexo C: protótipo
+
+Protótipo no Pencil: abrir o protótipo. Os dados que aparecem nele são ilustrativos.
+
+Tela                                  O que mostra
+
+1. Login                              E-mail corporativo e senha, com a apresentação do Nexo Assist
+
+2. Abertura de chamado                Perguntas para completar o chamado, prioridade com prazo e
+                                      rascunho para confirmação
+
+3. Consulta de chamado                Seleção entre os chamados abertos, status com prazo vencido e
+                                      oferta de chamar um analista
+
+4. Console: conversa                  Lista de conversas, conversa aguardando atendente com o agent
+transferida                           pausado e chamados do funcionário
+
+A5n. CeoxnsooleC: a:naplisrtoa tótipo Analista assumiu a conversa e pode devolvê-la ao agent ou
+
+atendendo                             encerrar
+Protótipo no Pencil: abrir o protótipo. Os dados que aparecem nele são ilustrativos.
+
+Tela                                  O que mostra
+1. Login
+2. Abertura de chamado                E-mail corporativo e senha, com a apresentação do Nexo Assist
+
+3. Consulta de chamado                Perguntas para completar o chamado, prioridade com prazo e
+                                      rascunho para confirmação
+4. Console: conversa
+transferida                           Seleção entre os chamados abertos, status com prazo vencido e
+5. Console: analista                  oferta de chamar um analista
+atendendo
+                                      Lista de conversas, conversa aguardando atendente com o agent
+                                      pausado e chamados do funcionário
+
+                                      Analista assumiu a conversa e pode devolvê-la ao agent ou
+                                      encerrar
+
+Beyond the Bytes · Processo seletivo                                                                 Página 5
+
+Beyond the Bytes · Processo seletivo                                                                 Página 5
+

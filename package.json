@@ -1,0 +1,22 @@
+{
+  "name": "nexo-assist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexo Assist — agent de service desk de TI (desafio técnico)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start --workspaces --if-present",
+    "test": "npm run test -w apps/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:reset": "node -e \"for (const f of ['apps/api/data/nexo.db','apps/api/data/nexo.db-wal','apps/api/data/nexo.db-shm']) require('node:fs').rmSync(f,{force:true})\""
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}
