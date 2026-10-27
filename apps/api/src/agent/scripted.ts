@@ -308,7 +308,7 @@ export class ScriptedEngine implements AgentEngine {
       title: makeTitle(report),
       description: report.trim(),
       category,
-      impact: null,
+      impact: inferImpact(n), // o relato já pode dizer quem é afetado
       blocksWork: urgency.blocks,
       deadlineToday: urgency.today,
       hasWorkaround: urgency.workaround,
@@ -332,8 +332,10 @@ export class ScriptedEngine implements AgentEngine {
     }
 
     // artigo que resolve direto? responde e pergunta se resolveu
+    // (exceção: crise — empresa/equipe parada não deve ser desviada para FAQ)
+    const critical = intake.impact !== null && intake.impact !== "self" && intake.blocksWork;
     const hit = search.data[0];
-    if (!skipHelpOffer && hit && hitApplies(hit, n) && !asksToOpen(n)) {
+    if (!critical && !skipHelpOffer && hit && hitApplies(hit, n) && !asksToOpen(n)) {
       services.store.setAgentContext(input.conversation.id, {
         pending: "post_help",
         helpQuery: report,
@@ -727,6 +729,21 @@ function inferKind(n: string, raw: string): TicketKind {
   return "INC";
 }
 
+/** Impacto dito no próprio relato ("todo mundo", "minha equipe inteira"). */
+function inferImpact(n: string): ImpactScope | null {
+  if (
+    /toda a empresa|empresa (toda|inteira)|todo mundo|ningu[eé]m.{0,25}(trabalhar|acessar|consegue|funciona)|geral|parou (para )?todos|v[aá]rias pessoas/.test(
+      n,
+    )
+  ) {
+    return "company";
+  }
+  if (/minha equipe|meu time|nossa equipe|nosso time|equipe (toda|inteira)|setor (todo|inteiro)/.test(n)) {
+    return "team";
+  }
+  return null;
+}
+
 interface Urgency {
   today: boolean;
   blocks: boolean;
@@ -736,7 +753,7 @@ interface Urgency {
 function detectUrgency(n: string): Urgency {
   return {
     today: /hoje|agora|urgente|j[aá]|reuni[aã]o|apresenta[cç][aã]o|deadline|at[ée] (as|a)|amanh[ãa] cedo|cliente|fechamento/.test(n),
-    blocks: /n[aã]o consigo trabalhar|imposs[ií]vel trabalhar|sem conseguir trabalhar|travou tudo|nada funciona|totalmente parado|impede|sem acesso nenhum|n[aã]o abre nada/.test(n),
+    blocks: /n[aã]o consigo trabalhar|imposs[ií]vel trabalhar|sem conseguir trabalhar|ningu[eé]m.{0,25}trabalhar|travou tudo|nada funciona|totalmente parado|parou tudo|tudo parou|impede|sem acesso nenhum|n[aã]o abre nada/.test(n),
     workaround: /mas d[aá] pra|consigo usar|por enquanto (uso|uso o|da pra)|alternativa|celular pessoal|improvis|outro (computador|notebook|caminho|jeito)/.test(n),
   };
 }
