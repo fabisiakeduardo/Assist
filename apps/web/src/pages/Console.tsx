@@ -11,6 +11,7 @@ import type {
   Ticket,
 } from "../types";
 import { Avatar, fmtAgo, fmtDayMonth, fmtTime, statusTone } from "../components/ui";
+import { StepsLine } from "../components/StepsLine";
 import {
   IconChat,
   IconChecks,
@@ -492,6 +493,11 @@ function ConsoleMessage({ m, analystName }: { m: Message; analystName: string })
           <span className="sname">Nexo Assist</span>
           <span className="ia-tag">IA</span>
         </div>
+        {m.steps && m.steps.length > 0 ? (
+          <div className="console-steps">
+            <StepsLine steps={m.steps} who="" />
+          </div>
+        ) : null}
         <div className="bubble">{m.text}</div>
         <div className="m-meta">{fmtTime(m.createdAt)}</div>
       </div>

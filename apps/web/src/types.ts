@@ -16,6 +16,8 @@ export interface PublicUser {
 export interface AgentStep {
   label: string;
   detail?: string;
+  tool?: string;
+  ms?: number;
 }
 
 export type CardPayload =

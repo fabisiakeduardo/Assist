@@ -21,6 +21,7 @@ import {
   opSearchHelp,
   opTransfer,
   type ImpactScope,
+  type StepEmitter,
 } from "./tools.js";
 import { confirmDraft, DraftNotPendingError } from "../services/draftActions.js";
 import { STEPS } from "./steps.js";
@@ -46,7 +47,7 @@ interface IntakeDraft {
 }
 
 interface Ctx {
-  pending?: "impact" | "note" | "post_help" | "dup_add_info";
+  pending?: "impact" | "note" | "post_help" | "dup_add_info" | "closed_reopen";
   intake?: IntakeDraft;
   noteTicketId?: string;
   pendingNote?: string;
@@ -64,14 +65,21 @@ export class ScriptedEngine implements AgentEngine {
   constructor(private readonly pace = { stepMs: 220, wordMs: 14 }) {}
 
   async run(input: AgentTurnInput, services: AgentServices, emit: AgentEmit): Promise<AgentResult> {
-    const result = await this.produce(input, services, emit);
-    for (const step of result.steps) {
+    // passos emitidos ao vivo pelas ops (ex.: retry do legado) não são re-emitidos
+    const emitted = new Set<AgentStep>();
+    const emitStep: StepEmitter = (step) => {
+      emitted.add(step);
       emit({
         type: "agent_step",
         conversationId: input.conversation.id,
         messageId: input.streamMessageId,
         step,
       });
+    };
+    const result = await this.produce(input, services, emitStep);
+    for (const step of result.steps) {
+      if (emitted.has(step)) continue;
+      emitStep(step);
       if (this.pace.stepMs) await sleep(this.pace.stepMs);
     }
     if (this.pace.wordMs) {
@@ -92,7 +100,7 @@ export class ScriptedEngine implements AgentEngine {
   private async produce(
     input: AgentTurnInput,
     services: AgentServices,
-    emit: AgentEmit,
+    emit: StepEmitter,
   ): Promise<AgentResult> {
     const ctx = (input.conversation.agentContext ?? {}) as Ctx;
     const text = input.userText;
@@ -137,6 +145,14 @@ export class ScriptedEngine implements AgentEngine {
       }
       return this.startIntake(input, services, emit, ctx.helpQuery ?? text, true);
     }
+    if (ctx.pending === "closed_reopen") {
+      // o chamado estava resolvido há >7 dias — o usuário decide se abre um novo
+      services.store.setAgentContext(input.conversation.id, null);
+      if (wants(n) || /abrir|novo|chamado/.test(n)) {
+        return this.startIntake(input, services, emit, ctx.pendingNote ?? text, true);
+      }
+      return finish("Sem problema. Se surgir qualquer outra coisa de TI, estou por aqui.", []);
+    }
 
     // rascunho pendente: confirmar / cancelar / editar
     const pendingDraft = services.store.pendingDraftFor(input.conversation.id);
@@ -159,8 +175,8 @@ export class ScriptedEngine implements AgentEngine {
       const refWhileDraft = text.match(TICKET_RE);
       if (isStatusQuery(n) || refWhileDraft) {
         const res = refWhileDraft
-          ? await this.ticketDetail(input, services, `${refWhileDraft[1]!.toUpperCase()}-${refWhileDraft[2]}`)
-          : await this.statusFlow(input, services);
+          ? await this.ticketDetail(input, services, emit, `${refWhileDraft[1]!.toUpperCase()}-${refWhileDraft[2]}`)
+          : await this.statusFlow(input, services, emit);
         return {
           ...res,
           text: `${res.text}\n\n(O rascunho do chamado continua aqui — é só confirmar ou pedir ajuste.)`,
@@ -196,10 +212,10 @@ export class ScriptedEngine implements AgentEngine {
 
     const ticketRef = text.match(TICKET_RE);
     if (ticketRef) {
-      return this.ticketDetail(input, services, `${ticketRef[1]!.toUpperCase()}-${ticketRef[2]}`);
+      return this.ticketDetail(input, services, emit, `${ticketRef[1]!.toUpperCase()}-${ticketRef[2]}`);
     }
-    if (isStatusQuery(n)) return this.statusFlow(input, services);
-    if (isSelectorPick(input)) return this.selectorPick(input, services, text);
+    if (isStatusQuery(n)) return this.statusFlow(input, services, emit);
+    if (isSelectorPick(input)) return this.selectorPick(input, services, emit, text);
 
     // pergunta how-to → central de ajuda primeiro
     if (isQuestion(n)) return this.helpFlow(input, services, text);
@@ -271,7 +287,7 @@ export class ScriptedEngine implements AgentEngine {
   private async startIntake(
     input: AgentTurnInput,
     services: AgentServices,
-    emit: AgentEmit,
+    emit: StepEmitter,
     report: string,
     skipHelpOffer = false,
   ): Promise<AgentResult> {
@@ -281,7 +297,7 @@ export class ScriptedEngine implements AgentEngine {
     const search = await opSearchHelp(services, report);
     steps.push(...search.steps);
 
-    const list = await opListTickets(services, input.user);
+    const list = await opListTickets(services, input.user, emit);
     steps.push(...list.steps);
 
     const kind = inferKind(n, report);
@@ -299,7 +315,7 @@ export class ScriptedEngine implements AgentEngine {
     };
 
     // duplicidade primeiro (regra do Anexo A)
-    const dup = await opCheckDuplicates(services, input.user, intake.title, category);
+    const dup = await opCheckDuplicates(services, input.user, intake.title, category, emit);
     steps.push(...dup.steps);
     const dupTicket = dup.data.duplicate as { id: string; title: string; status: string } | null;
     if (dupTicket) {
@@ -350,7 +366,7 @@ export class ScriptedEngine implements AgentEngine {
   private async answerImpact(
     input: AgentTurnInput,
     services: AgentServices,
-    emit: AgentEmit,
+    emit: StepEmitter,
     ctx: Ctx,
     answer: string,
   ): Promise<AgentResult> {
@@ -415,8 +431,8 @@ export class ScriptedEngine implements AgentEngine {
 
   // ── status / detalhe de chamado ───────────────────────────────────────────
 
-  private async statusFlow(input: AgentTurnInput, services: AgentServices): Promise<AgentResult> {
-    const res = await opListTickets(services, input.user);
+  private async statusFlow(input: AgentTurnInput, services: AgentServices, emit: StepEmitter): Promise<AgentResult> {
+    const res = await opListTickets(services, input.user, emit);
     const tickets = res.data as Array<{ id: string; title: string; status: string; updatedAt: string; overdue: boolean }>;
     if (tickets.length === 0) {
       return {
@@ -425,7 +441,7 @@ export class ScriptedEngine implements AgentEngine {
       };
     }
     if (tickets.length === 1) {
-      return this.ticketDetail(input, services, tickets[0]!.id, res.steps);
+      return this.ticketDetail(input, services, emit, tickets[0]!.id, res.steps);
     }
     const lines = tickets.map((t) => `${t.id} — ${t.title}`).join("\n");
     return {
@@ -435,22 +451,23 @@ export class ScriptedEngine implements AgentEngine {
     };
   }
 
-  private async selectorPick(input: AgentTurnInput, services: AgentServices, text: string): Promise<AgentResult> {
+  private async selectorPick(input: AgentTurnInput, services: AgentServices, emit: StepEmitter, text: string): Promise<AgentResult> {
     // última mensagem do agent era um seletor → o texto é a escolha
-    const list = await opListTickets(services, input.user);
+    const list = await opListTickets(services, input.user, emit);
     const tickets = list.data as Array<{ id: string; title: string }>;
     const pick =
       tickets.find((t) => normalize(text).includes(normalize(t.id))) ??
       tickets.find((t) => normalize(text).includes(normalize(t.title).slice(0, 24)));
     if (!pick) {
-      return this.statusFlow(input, services);
+      return this.statusFlow(input, services, emit);
     }
-    return this.ticketDetail(input, services, pick.id, list.steps);
+    return this.ticketDetail(input, services, emit, pick.id, list.steps);
   }
 
   private async ticketDetail(
     input: AgentTurnInput,
     services: AgentServices,
+    emit: StepEmitter,
     ticketId: string,
     steps: AgentStep[] = [],
   ): Promise<AgentResult> {
@@ -466,6 +483,17 @@ export class ScriptedEngine implements AgentEngine {
     const statusLabel = STATUS_LABEL[t.status as keyof typeof STATUS_LABEL] ?? t.status;
     let summary = `${t.id} — "${t.title}" está ${statusLabel.toLowerCase()}, prioridade ${PRIORITY_LABEL[t.priority as TicketPriority].toLowerCase()}. Última atualização ${fmtAgo(t.updatedAt)}.`;
     const ticketCard: CardPayload = { type: "ticket", ticketId: t.id };
+    if (t.status === "resolvido") {
+      summary += " Se o problema voltou, posso acrescentar uma atualização — isso reabre o chamado se ele foi resolvido há até 7 dias.";
+      return {
+        text: summary,
+        steps,
+        cards: [
+          ticketCard,
+          { type: "options", options: ["Adicionar informação", "Não, obrigado"] },
+        ],
+      };
+    }
     if (t.overdue) {
       summary += ` O prazo de resposta já venceu (${fmtDayMonthTime(t.dueAt)}) — quer que eu chame um analista?`;
       return {
@@ -492,7 +520,7 @@ export class ScriptedEngine implements AgentEngine {
   private async addNote(
     input: AgentTurnInput,
     services: AgentServices,
-    emit: AgentEmit,
+    emit: StepEmitter,
     ctx: Ctx,
     text: string,
     skipConfirm = false,
@@ -508,9 +536,23 @@ export class ScriptedEngine implements AgentEngine {
       };
     }
     const note = ctx.pendingNote ?? text;
-    const res = await opAddTicketInfo(services, input.user, tid, note);
+    const res = await opAddTicketInfo(services, input.user, tid, note, emit);
     services.store.setAgentContext(input.conversation.id, null);
-    if ("error" in (res.data as Record<string, unknown>)) {
+    const errKind = "error" in res.data ? res.data.error : null;
+    if (errKind === "closed_window") {
+      // fora da janela de 7 dias — oferece abrir um chamado novo com a mesma nota
+      services.store.setAgentContext(input.conversation.id, {
+        pending: "closed_reopen",
+        noteTicketId: tid,
+        pendingNote: note,
+      } satisfies Ctx);
+      return {
+        text: `O ${tid} já foi resolvido há mais de 7 dias e não dá pra reabrir — mas posso abrir um chamado novo com essas informações. Quer que eu monte o rascunho?`,
+        steps: res.steps,
+        cards: [{ type: "options", options: ["Sim, abrir novo chamado", "Não, obrigado"] }],
+      };
+    }
+    if (errKind) {
       return { text: `Não consegui atualizar o ${tid}. Quer tentar de novo em instantes?`, steps: res.steps };
     }
     const data = res.data as { ticket: { id: string }; reopened: boolean };

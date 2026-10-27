@@ -812,11 +812,66 @@ button {
   align-items: center;
   gap: 5px;
   font-size: 12.5px;
+  font-family: inherit;
+  color: var(--ink-3);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.step-chip.clickable {
+  cursor: pointer;
+}
+
+.step-chip.clickable:hover {
+  color: var(--ink);
+}
+
+.step-chip.open {
+  color: var(--ink);
+}
+
+.step-chip .step-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.step-chip .step-detail em {
+  font-style: normal;
+  color: var(--ink-3);
+}
+
+.step-chip .step-detail code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  background: var(--bg-soft, #f1f4f8);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--ink-2);
+}
+
+.step-chip .step-detail .ms {
+  font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 
 .step-chip svg {
   color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+/* passos do agent dentro do console do analista */
+.console-steps {
+  margin: 2px 0 4px;
+}
+
+.console-steps .steps-line {
+  gap: 4px 12px;
+  margin-bottom: 0;
 }
 
 .step-chip.doing svg {

@@ -10,7 +10,8 @@ import type {
 } from "../domain/types.js";
 import { computeDueAt, slaLabel } from "../domain/sla.js";
 import type { AgentServices } from "./engine.js";
-import { withRetry } from "../services/ticketService.js";
+import { config } from "../config.js";
+import { TicketClosedError, withRetry } from "../services/ticketService.js";
 import { STEPS } from "./steps.js";
 
 // ─── Operações do agent sobre o domínio ──────────────────────────────────────
@@ -18,6 +19,22 @@ import { STEPS } from "./steps.js";
 // passos para a linha de transparência, e card opcional para a UI.
 // O motor Mastra embrulha estas funções em createTool(); o ScriptedEngine
 // chama direto — mesmo efeito, mesmo vocabulário de passos.
+//
+// Cada passo carrega a latência medida (ms); as retries do legado são
+// emitidas AO VIVO via StepEmitter (além de voltarem em `steps`, para que
+// fiquem persistidas na mensagem e visíveis no console do analista).
+
+/** Emite um passo para o SSE no instante em que acontece (ex.: retry do legado). */
+export type StepEmitter = (step: AgentStep) => void;
+
+const elapsed = (t0: number) => Math.max(1, Math.round(performance.now() - t0));
+const withMs = (step: AgentStep, t0: number): AgentStep => ({ ...step, ms: elapsed(t0) });
+
+function retryStep(attempt: number, steps: AgentStep[], emit?: StepEmitter): void {
+  const step = STEPS.retryLegacy(attempt);
+  steps.push(step);
+  emit?.(step);
+}
 
 export interface OpResult<T> {
   data: T;
@@ -59,8 +76,15 @@ const ok = <T>(data: T, steps: AgentStep[] = [], card?: CardPayload): OpResult<T
 export async function opListTickets(
   services: AgentServices,
   user: User,
+  emit?: StepEmitter,
 ): Promise<OpResult<TicketListItem[]>> {
-  const tickets = await withRetry(() => services.tickets.listOpen(user.id));
+  const steps: AgentStep[] = [];
+  const t0 = performance.now();
+  const tickets = await withRetry(
+    () => services.tickets.listOpen(user.id),
+    (attempt) => retryStep(attempt, steps, emit),
+  );
+  steps.push(withMs(STEPS.consultTickets(), t0));
   return ok(
     tickets.map((t) => ({
       id: t.id,
@@ -71,7 +95,7 @@ export async function opListTickets(
       dueAt: t.dueAt,
       overdue: t.overdue,
     })),
-    [STEPS.consultTickets()],
+    steps,
   );
 }
 
@@ -79,9 +103,15 @@ export async function opGetTicket(
   services: AgentServices,
   user: User,
   ticketId: string,
+  emit?: StepEmitter,
 ): Promise<OpResult<TicketDetail | { error: "not_found_or_private" }>> {
-  const t = await withRetry(() => services.tickets.getForRequester(ticketId, user.id));
-  const steps = [STEPS.consultTicket(ticketId.toUpperCase())];
+  const steps: AgentStep[] = [];
+  const t0 = performance.now();
+  const t = await withRetry(
+    () => services.tickets.getForRequester(ticketId, user.id),
+    (attempt) => retryStep(attempt, steps, emit),
+  );
+  steps.push(withMs(STEPS.consultTicket(ticketId.toUpperCase()), t0));
   if (t) steps.push(STEPS.calcDeadline());
   return ok(
     t
@@ -107,6 +137,7 @@ export async function opSearchHelp(
   services: AgentServices,
   query: string,
 ): Promise<OpResult<HelpHitDto[]>> {
+  const t0 = performance.now();
   const hits = services.help.search(query, 3);
   return ok(
     hits.map((h) => ({
@@ -114,7 +145,7 @@ export async function opSearchHelp(
       title: h.article.title,
       body: h.article.body,
     })),
-    [STEPS.searchHelp()],
+    [withMs(STEPS.searchHelp(), t0)],
   );
 }
 
@@ -179,6 +210,7 @@ export async function opBuildDraft(
   const existing = services.store.pendingDraftFor(conversation.id);
   if (existing) services.store.setDraftStatus(existing.id, "cancelled");
 
+  const t0 = performance.now();
   const draft = services.store.insertDraft({
     conversationId: conversation.id,
     kind: input.kind,
@@ -189,7 +221,7 @@ export async function opBuildDraft(
     affected: input.affected,
     dueAt: computeDueAt(input.priority, new Date()).toISOString(),
   });
-  return ok(draft, [STEPS.buildDraft()], { type: "draft", draftId: draft.id });
+  return ok(draft, [withMs(STEPS.buildDraft(), t0)], { type: "draft", draftId: draft.id });
 }
 
 export async function opCheckDuplicates(
@@ -197,10 +229,15 @@ export async function opCheckDuplicates(
   user: User,
   title: string,
   category: string,
+  emit?: StepEmitter,
 ): Promise<OpResult<{ duplicate: TicketListItem | null }>> {
-  const similar = await withRetry(() =>
-    services.tickets.findSimilar(user.id, title, category),
+  const steps: AgentStep[] = [];
+  const t0 = performance.now();
+  const similar = await withRetry(
+    () => services.tickets.findSimilar(user.id, title, category),
+    (attempt) => retryStep(attempt, steps, emit),
   );
+  steps.push(withMs(STEPS.checkDuplicates(), t0));
   return ok(
     {
       duplicate: similar
@@ -215,21 +252,50 @@ export async function opCheckDuplicates(
           }
         : null,
     },
-    [STEPS.checkDuplicates()],
+    steps,
   );
 }
 
 // ── atualização de chamado ───────────────────────────────────────────────────
+
+export type AddTicketInfoData =
+  | { ticket: TicketListItem; reopened: boolean }
+  | { error: "not_found_or_private" }
+  | { error: "closed_window"; ticketId: string; resolvedDaysAgo: number };
 
 export async function opAddTicketInfo(
   services: AgentServices,
   user: User,
   ticketId: string,
   note: string,
-): Promise<OpResult<{ ticket: TicketListItem; reopened: boolean } | { error: "not_found_or_private" }>> {
-  const res = await withRetry(() => services.tickets.addUpdate(ticketId, user.id, note));
-  if (!res) return ok({ error: "not_found_or_private" }, [STEPS.consultTicket(ticketId)]);
+  emit?: StepEmitter,
+): Promise<OpResult<AddTicketInfoData>> {
+  const steps: AgentStep[] = [];
+  const t0 = performance.now();
+  let res;
+  try {
+    res = await withRetry(
+      () => services.tickets.addUpdate(ticketId, user.id, note),
+      (attempt) => retryStep(attempt, steps, emit),
+    );
+  } catch (err) {
+    // chamado resolvido há mais de 7 dias: resposta explicável, não crash
+    if (err instanceof TicketClosedError) {
+      const t = services.store.ticket(ticketId);
+      const days = t?.resolvedAt
+        ? (Date.now() - new Date(t.resolvedAt).getTime()) / 86_400_000
+        : config.reopenWindowDays + 1;
+      steps.push(withMs(STEPS.closedTooOld(ticketId, days), t0));
+      return ok({ error: "closed_window", ticketId, resolvedDaysAgo: days }, steps);
+    }
+    throw err;
+  }
+  if (!res) {
+    steps.push(withMs(STEPS.consultTicket(ticketId), t0));
+    return ok({ error: "not_found_or_private" }, steps);
+  }
   const t = res.ticket;
+  steps.push(withMs(res.reopened ? STEPS.reopenTicket(t.id) : STEPS.updateTicket(t.id), t0));
   return ok(
     {
       ticket: {
@@ -243,7 +309,7 @@ export async function opAddTicketInfo(
       },
       reopened: res.reopened,
     },
-    [res.reopened ? STEPS.reopenTicket(t.id) : STEPS.updateTicket(t.id)],
+    steps,
   );
 }
 
@@ -255,6 +321,7 @@ export async function opTransfer(
   input: { summary: string; reason: string; queue?: QueueLevel },
 ): Promise<OpResult<{ queue: QueueLevel }>> {
   const queue = input.queue ?? "N1";
+  const t0 = performance.now();
   services.store.setConversationStatus(conversation.id, "waiting_analyst", {
     queue,
     handoffSummary: input.summary,
@@ -266,7 +333,7 @@ export async function opTransfer(
     sender: "system",
     text: `Transferida para Suporte ${queue}`,
   });
-  return ok({ queue }, [STEPS.transfer()]);
+  return ok({ queue }, [withMs(STEPS.transfer(), t0)]);
 }
 
 // ── helpers de card (só geram payload visual, sem passos) ───────────────────

@@ -11,7 +11,8 @@ import type {
 } from "../types";
 import { DraftCard, OptionButtons, TicketCard, TicketSelector } from "../components/Cards";
 import { OnlinePill, TopBar } from "../components/Shell";
-import { IconCheck, IconInfo, IconSend } from "../components/icons";
+import { StepsLine } from "../components/StepsLine";
+import { IconInfo, IconSend } from "../components/icons";
 import { fmtTime } from "../components/ui";
 
 interface Streaming {
@@ -273,22 +274,6 @@ export function EmployeeChat() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── linha de passos do agent (transparência) ────────────────────────────────
-
-function StepsLine({ steps, live }: { steps: AgentStep[]; live?: boolean }) {
-  return (
-    <div className="steps-line">
-      <span className="who">Nexo Assist</span>
-      {steps.map((s, i) => (
-        <span key={i} className={`step-chip ${live && i === steps.length - 1 ? "doing" : ""}`}>
-          <IconCheck size={12} />
-          {s.label}
-        </span>
-      ))}
     </div>
   );
 }

@@ -112,10 +112,16 @@ export interface Conversation {
 
 export type MessageSender = "user" | "agent" | "analyst" | "system";
 
-/** Um passo visível do agent ("consultou seus chamados"). */
+/**
+ * Um passo visível do agent ("consultou seus chamados").
+ * `tool` identifica a operação do domínio e `ms` a latência medida —
+ * transparência inspecionável (hover/clique no chip mostra o detalhe).
+ */
 export interface AgentStep {
   label: string;
   detail?: string;
+  tool?: string;
+  ms?: number;
 }
 
 export type CardPayload =

@@ -17,6 +17,7 @@ import {
   opListTickets,
   opSearchHelp,
   opTransfer,
+  type StepEmitter,
 } from "./tools.js";
 import { stepForTool, STEPS } from "./steps.js";
 import { SYSTEM_PROMPT } from "./prompt.js";
@@ -44,6 +45,17 @@ export class MastraEngine implements AgentEngine {
     const steps: AgentStep[] = [];
     const collectedCards: CardPayload[] = [];
     const toolNames: string[] = [];
+    // passos ao vivo: retries do legado chegam pela StepEmitter das ops e já
+    // entram em `steps` (persistem na mensagem + aparecem no console)
+    const emitStep: StepEmitter = (step) => {
+      steps.push(step);
+      emit({
+        type: "agent_step",
+        conversationId: input.conversation.id,
+        messageId: input.streamMessageId,
+        step,
+      });
+    };
 
     const tools = {
       listar_chamados: createTool({
@@ -51,7 +63,7 @@ export class MastraEngine implements AgentEngine {
         description:
           "Lista os chamados ABERTOS do funcionário atual (id, título, status, prioridade, prazo, vencido). Use antes de falar de status e antes de abrir chamado.",
         inputSchema: z.object({}).strict(),
-        execute: async () => (await opListTickets(services, input.user)).data,
+        execute: async () => (await opListTickets(services, input.user, emitStep)).data,
       }),
       detalhar_chamado: createTool({
         id: "detalhar_chamado",
@@ -59,7 +71,7 @@ export class MastraEngine implements AgentEngine {
           "Detalha UM chamado do funcionário (status, prioridade, datas, prazo, se está vencido). Aceita o número INC-XXXXX ou REQ-XXXXX.",
         inputSchema: z.object({ ticketId: z.string().describe("Número do chamado, ex.: INC-20311") }),
         execute: async ({ ticketId }) =>
-          (await opGetTicket(services, input.user, ticketId)).data,
+          (await opGetTicket(services, input.user, ticketId, emitStep)).data,
       }),
       buscar_ajuda: createTool({
         id: "buscar_ajuda",
@@ -99,7 +111,7 @@ export class MastraEngine implements AgentEngine {
           categoria: z.enum(CATEGORIES),
         }),
         execute: async ({ titulo, categoria }) =>
-          (await opCheckDuplicates(services, input.user, titulo, categoria)).data,
+          (await opCheckDuplicates(services, input.user, titulo, categoria, emitStep)).data,
       }),
       montar_rascunho: createTool({
         id: "montar_rascunho",
@@ -164,7 +176,7 @@ export class MastraEngine implements AgentEngine {
           nota: z.string().describe("Resumo do que o funcionário acrescentou"),
         }),
         execute: async ({ ticketId, nota }) =>
-          (await opAddTicketInfo(services, input.user, ticketId.toUpperCase(), nota)).data,
+          (await opAddTicketInfo(services, input.user, ticketId.toUpperCase(), nota, emitStep)).data,
       }),
       transferir_analista: createTool({
         id: "transferir_analista",
@@ -198,6 +210,9 @@ export class MastraEngine implements AgentEngine {
       modelSettings: { temperature: config.llmTemperature },
     });
 
+    // latência por tool: casa tool-call → tool-result pelo toolCallId
+    const pendingCalls = new Map<string, { step: AgentStep | null; t0: number }>();
+
     let text = "";
     for await (const chunk of stream.fullStream) {
       const c = chunk as { type: string; payload?: Record<string, unknown> };
@@ -211,28 +226,20 @@ export class MastraEngine implements AgentEngine {
           delta,
         });
       } else if (c.type === "tool-call") {
-        const p = c.payload as { toolName?: string; args?: unknown };
+        const p = c.payload as { toolName?: string; args?: unknown; toolCallId?: string };
         const name = p.toolName ?? "";
         toolNames.push(name);
         const step = stepForTool(name, p.args, null);
-        if (step) {
-          steps.push(step);
-          emit({
-            type: "agent_step",
-            conversationId: input.conversation.id,
-            messageId: input.streamMessageId,
-            step,
-          });
+        pendingCalls.set(String(p.toolCallId ?? name), { step, t0: performance.now() });
+        if (step) emitStep(step);
+      } else if (c.type === "tool-result") {
+        const p = c.payload as { toolCallId?: string; toolName?: string };
+        const rec = pendingCalls.get(String(p.toolCallId ?? p.toolName ?? ""));
+        if (rec?.step && rec.step.ms === undefined) {
+          rec.step.ms = Math.max(1, Math.round(performance.now() - rec.t0));
         }
       } else if (c.type === "tool-error") {
-        const step = STEPS.legacyDown();
-        steps.push(step);
-        emit({
-          type: "agent_step",
-          conversationId: input.conversation.id,
-          messageId: input.streamMessageId,
-          step,
-        });
+        emitStep(STEPS.legacyDown());
       }
     }
 
