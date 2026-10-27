@@ -35,7 +35,9 @@ export const config = {
   host: process.env.HOST ?? "0.0.0.0",
   databaseFile: process.env.DATABASE_FILE ?? path.join(apiRoot, "data", "nexo.db"),
   agentEngine: (process.env.AGENT_ENGINE ?? "auto") as AgentEngineKind,
-  llmModel: process.env.LLM_MODEL ?? "openai/gpt-4o-mini",
+  // Gemini 2.5 Flash como default: modelo gratuito no nível free do AI Studio,
+  // rápido e com bom seguimento de instruções para um service desk.
+  llmModel: process.env.LLM_MODEL ?? "google/gemini-2.5-flash",
   llmTemperature: num("LLM_TEMPERATURE", 0.2),
   ticketsChaosRate: num("TICKETS_CHAOS_RATE", 0.12),
   dailyMessageLimit: num("DAILY_MESSAGE_LIMIT", 30),
@@ -59,6 +61,7 @@ export function hasLlmKey(): boolean {
     deepseek: ["DEEPSEEK_API_KEY"],
     groq: ["GROQ_API_KEY"],
     mistral: ["MISTRAL_API_KEY"],
+    xai: ["XAI_API_KEY"],
   };
   const keys = envFor[provider] ?? [`${provider.toUpperCase()}_API_KEY`];
   return keys.some((k) => (process.env[k] ?? "").length > 0);
