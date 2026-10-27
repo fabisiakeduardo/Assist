@@ -195,7 +195,7 @@ export function EmployeeChat() {
   const closed = conv?.status === "closed";
 
   return (
-    <div className="chat">
+    <main className="chat">
       <TopBar here="Atendimento" right={<OnlinePill />} />
       <div className="chat-main">
         <div className="chat-col">
@@ -285,7 +285,7 @@ export function EmployeeChat() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

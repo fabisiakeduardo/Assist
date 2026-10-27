@@ -6,6 +6,8 @@ import type { TicketService } from "./services/ticketService.js";
 import type { HelpCenter } from "./services/helpCenter.js";
 import type { AgentRunner } from "./services/runner.js";
 import type { RealtimeHub } from "./realtime.js";
+import { OidcClient, oidcPkce } from "./services/oidc.js";
+import { randomBytes } from "node:crypto";
 import type { Conversation, Message, Ticket, User } from "./domain/types.js";
 import { PRIORITY_LABEL, STATUS_LABEL } from "./domain/types.js";
 import { confirmDraft, cancelDraft, DraftNotPendingError } from "./services/draftActions.js";
@@ -21,6 +23,7 @@ interface RouteDeps {
   runner: AgentRunner;
   hub: RealtimeHub;
   engineKind: string;
+  oidc?: OidcClient | undefined;
 }
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
@@ -82,6 +85,57 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     void reply.clearCookie(SESSION_COOKIE, { path: "/" });
     return { ok: true };
   });
+
+  // provedores de login habilitados — a tela de login decide o que mostrar
+  app.get("/auth/providers", async () => ({
+    password: true,
+    oidc: deps.oidc ? { label: deps.oidc.cfg.label } : null,
+  }));
+
+  // ── SSO (OIDC) — Authorization Code + PKCE ────────────────────────────────
+  if (deps.oidc) {
+    const oidc = deps.oidc;
+
+    app.get("/auth/oidc/login", async (req, reply) => {
+      const state = randomBytes(16).toString("hex");
+      const nonce = randomBytes(16).toString("hex");
+      const verifier = oidcPkce.newVerifier();
+      store.createOidcState(state, nonce, verifier);
+      try {
+        return reply.redirect(await oidc.authorizationUrl(state, nonce, verifier));
+      } catch (err) {
+        req.log.error(err, "oidc authorize falhou");
+        return reply.redirect("/login?sso=error");
+      }
+    });
+
+    app.get("/auth/oidc/callback", async (req, reply) => {
+      const q = req.query as { code?: string; state?: string; error?: string };
+      if (q.error) return reply.redirect(`/login?sso=${encodeURIComponent(q.error)}`);
+      if (!q.code || !q.state) {
+        return reply.code(400).send({ error: "invalid_callback" });
+      }
+      const stored = store.consumeOidcState(q.state);
+      if (!stored) return reply.redirect("/login?sso=state");
+      try {
+        const { idToken } = await oidc.exchangeCode(q.code, stored.verifier);
+        const identity = await oidc.validateIdToken(idToken, stored.nonce);
+        const user = store.userByEmail(identity.email);
+        if (!user) return reply.redirect("/login?sso=unknown_user");
+        const token = store.createSession(user.id);
+        void reply.setCookie(SESSION_COOKIE, token, {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 14,
+        });
+        return reply.redirect("/");
+      } catch (err) {
+        req.log.error(err, "oidc callback falhou");
+        return reply.redirect("/login?sso=error");
+      }
+    });
+  }
 
   app.get("/me", async (req, reply) => {
     const u = requireUser(req, reply);
@@ -442,6 +496,7 @@ function messageDto(m: Message) {
     text: m.text,
     steps: m.steps,
     cards: m.cards,
+    meta: m.meta,
     createdAt: m.createdAt,
   };
 }

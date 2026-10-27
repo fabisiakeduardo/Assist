@@ -39,11 +39,15 @@ O banco SQLite é criado e semeado em `apps/api/data/nexo.db` na primeira
 execução — `npm run db:reset` apaga e re-seeda.
 
 ```bash
-npm test           # vitest — 46 testes (SLA, fluxos do agent, rotas HTTP)
+npm test           # vitest — 76 testes (SLA, fluxos do agent, OIDC, escalonamento, rotas HTTP)
 npm run eval       # 11 cenários de conversa → relatório em apps/api/eval/EVAL.md
+npm run eval:help  # relevância da busca da central (lexical vs embeddings) → mesma EVAL.md
 npm run typecheck  # tsc nos dois apps
 npm run build      # build de produção (api dist/ + web dist/)
+npm run test:e2e   # Playwright + axe — sobe API+Vite e dirige um Chromium (10 specs)
 ```
+
+Para o `test:e2e`, instale o navegador uma vez: `npx playwright install chromium`.
 
 ## Deploy (modo produção)
 
@@ -71,9 +75,11 @@ Headers de segurança via `@fastify/helmet` (CSP same-origin, SSE ok).
 ## O que o agent faz (Anexo A)
 
 - **Escopo só de TI** — RH/financeiro/facilities são redirecionados com jeito.
-- **Central de ajuda primeiro** — busca lexical sobre os artigos; só pergunta
-  "resolveu?" e oferece abrir chamado. **Exceção:** crise (empresa/equipe
-  parada) vai direto ao rascunho — FAQ não é resposta para outage.
+- **Central de ajuda primeiro** — busca **híbrida**: lexical + embeddings
+  locais (n-gramas + IDF + sinônimos do domínio, determinística e offline);
+  só pergunta "resolveu?" e oferece abrir chamado. `HELP_SEARCH_MODE=lexical`
+  volta ao modo antigo. **Exceção:** crise (empresa/equipe parada) vai direto
+  ao rascunho — FAQ não é resposta para outage.
 - **Rascunho + confirmação** — nunca cria/atualiza chamado sem o funcionário
   confirmar (botão ou "pode criar" no texto). Rascunho pendente não engole
   intenções novas (ex.: "como estão meus chamados?" responde o status e o
@@ -93,6 +99,13 @@ Headers de segurança via `@fastify/helmet` (CSP same-origin, SSE ok).
 - **Transparência** — cada resposta carrega `steps` estruturados:
   rótulo + tool + latência medida + detalhe. Chips são expansíveis na UI,
   aparecem no console do analista e **retries do legado chegam ao vivo via SSE**.
+- **Telemetria de LLM** — no motor Mastra, cada mensagem carrega `meta` com
+  engine, modelo, uso de tokens (entrada/saída/cached/reasoning) e **custo
+  estimado em USD** por tabela de preços — visível discretamente no console.
+- **Escalonamento por SLA** — um job (`ESCALATION_INTERVAL_SEC`) re-transfere
+  para **N2** conversas `waiting_analyst` cujo chamado vinculado venceu o prazo
+  ou que esperam além de `ESCALATION_WAIT_MINUTES`: grava mensagem de sistema,
+  evento no histórico do chamado e atualiza o console via SSE.
 - **Limite de uso** — 30 mensagens/dia por funcionário (429 depois disso).
 
 ## Arquitetura
@@ -105,15 +118,19 @@ apps/
       agent/     AgentEngine (interface), tools compartilhadas,
                  scripted.ts (determinístico), mastra.ts (LLM)
       services/  TicketService (legado simulado c/ caos+retry),
-                 HelpCenter, AgentRunner (fila por conversa), draftActions
+                 HelpCenter + embeddings.ts (busca híbrida), AgentRunner
+                 (fila por conversa), draftActions, escalation.ts (job SLA→N2),
+                 oidc.ts (SSO: discovery + PKCE + JWKS, sem deps)
       db.ts      schema + migração (node:sqlite)
       store.ts   mapeadores + persistência (+ senha scrypt)
-      routes.ts  REST + SSE (montadas sob /api)
+      routes.ts  REST + SSE + auth/OIDC (montadas sob /api)
     eval/        scenarios.ts + run.ts → EVAL.md
-  web/   Vite + React + TS       — SPA fiel ao protótipo
+                 helpDataset.ts + helpEval.ts (relevância da busca)
+  web/   Vite + React + TS
     src/pages     Login / EmployeeChat / Profile / Console
     src/components Cards, Shell, ícones, StepsLine (chips expansíveis)
     src/styles.css tokens do .pen (cores, raios, tipografia)
+e2e/   Playwright + axe — specs de login/chat/console/a11y
 ```
 
 ### Decisões-chave
@@ -146,12 +163,26 @@ apps/
   produção a própria API serve o build do front (deploy de um serviço só).
 - **Auth real atrás de flag** — o desafio pede "qualquer senha"; implementei
   scrypt de verdade + throttle e deixei o comportamento demo atrás de
-  `AUTH_ANY_PASSWORD`, documentado em vez de fingido.
+  `AUTH_ANY_PASSWORD`, documentado em vez de fingido. Para produção há ainda
+  o **SSO via OIDC** (abaixo) — a senha vira só o fallback.
+- **Embeddings locais, não remotos.** A busca da central mistura score lexical
+  com similaridade de cosseno de vetores n-gram/IDF gerados em memória —
+  resolve paráfrases sem adicionar banco vetorial nem chamada de API, e
+  mantém o modo offline determinístico (mais contexto em `eval/EVAL.md`).
+- **OIDC sem SDK.** `services/oidc.ts` implementa discovery
+  (`.well-known`), Authorization Code + PKCE S256 e validação do `id_token`
+  via JWKS com `node:crypto` (RS256/384/512 e ES256/384/512). O e-mail do IdP
+  mapeia para o usuário local; a sessão continua o cookie `nexo_sid` — os
+  guards (`requireUser`/`requireAnalyst`) não mudam.
+- **Escalonamento como job isolado.** `runEscalationTick` é uma função pura
+  sobre `Store`+`RealtimeHub` (testável sem timer); o `EscalationJob` só agenda
+  o intervalo (`unref`'d) e é testado por chamadas de tick.
 
 ### Trade-offs assumidos
 
-- Busca da central de ajuda é lexical (keywords + Jaccard) — previsível para
-  ~10 artigos; trocável por embeddings atrás da mesma interface.
+- Os embeddings são n-gram/IDF locais (não um modelo semântico) — suficiente
+  para paráfrases do domínio em ~10 artigos; `HELP_SEARCH_MODE` permite
+  comparar lexical/vector/hybrid e trocar depois atrás da mesma interface.
 - Dedup é por similaridade de título+categoria do mesmo solicitante —
   conservadora (threshold 0.34) para não fundir assuntos distintos.
 - O scripted engine cobre os fluxos do desafio; para conversas abertas de
@@ -161,13 +192,22 @@ apps/
 
 ## Qualidade
 
-- **46 testes vitest**: SLA em horário útil (20), fluxos do agent fim-a-fim
+- **76 testes vitest**: SLA em horário útil (20), fluxos do agent fim-a-fim
   contra banco em memória (17 — intake, dedup, privacidade, reabertura,
-  transparência de passos, retry do legado) e rotas HTTP (9 — auth, 401/403,
-  limite diário, confirm de rascunho).
+  transparência de passos, retry do legado), rotas HTTP (9 — auth, 401/403,
+  limite diário, confirm de rascunho), busca da central (10), telemetria
+  tokens/custo (8), escalonamento SLA→N2 (5) e **SSO OIDC ponta a ponta contra
+  um IdP fake com RSA de verdade** (7 — PKCE, assinatura, nonce, erros).
 - **11 cenários de avaliação** (`npm run eval`): conversas multi-turno com
-  assertivas de texto, tools, cards e efeitos no banco → `apps/api/eval/EVAL.md`.
-- **CI** (`.github/workflows/ci.yml`): typecheck + testes + avaliação + build.
+  assertivas de texto, tools, cards e efeitos no banco → `apps/api/eval/EVAL.md`;
+  mais a avaliação de relevância da central (`npm run eval:help`) comparando
+  lexical × embeddings por cenário.
+- **10 specs Playwright + axe** (`npm run test:e2e`): login (funcionária,
+  analista, erro, guard), fluxo completo de chat (ajuda → impacto → rascunho →
+  confirmação → chamado criado), console do analista (fila N1/N2, assumir,
+  responder) e auditoria axe **zero violações** nas três telas.
+- **CI** (`.github/workflows/ci.yml`): typecheck + testes + avaliação + build +
+  Playwright/a11y.
 
 ## Variáveis de ambiente
 
@@ -179,15 +219,22 @@ Veja `.env.example` (copie para `apps/api/.env`). Principais:
 | `LLM_MODEL`          | `google/gemini-2.5-flash` | modelo do engine Mastra (router)           |
 | `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` | — | chave do provider (ativa o modo Mastra) |
 | `AUTH_ANY_PASSWORD`  | `true`                    | `false` = valida scrypt (senha `nexo123`)  |
+| `HELP_SEARCH_MODE`   | `hybrid`                  | `hybrid` · `vector` · `lexical`            |
+| `ESCALATION_INTERVAL_SEC` | `30`               | intervalo do job de escalonamento (s)      |
+| `ESCALATION_WAIT_MINUTES` | `60`               | espera máx. em `waiting_analyst` (min)     |
+| `OIDC_ISSUER` / `OIDC_CLIENT_ID` | —           | habilita o botão de SSO na tela de login   |
+| `OIDC_CLIENT_SECRET` / `OIDC_REDIRECT_URI` / `OIDC_SCOPES` / `OIDC_LABEL` | — | detalhes do client OIDC (PKCE sempre) |
 | `PORT`               | `4100`                    | porta da API                               |
-| `DATABASE_FILE`      | `./data/nexo.db`          | arquivo SQLite                             |
+| `DATABASE_FILE`      | `./data/nexo.db`          | arquivo SQLite (`:memory:` funciona)       |
 | `TICKETS_CHAOS_RATE` | `0.12`                    | instabilidade do legado (0 = desligado)    |
 | `DAILY_MESSAGE_LIMIT`| `30`                      | mensagens/dia por funcionário              |
 
 ## Rotas principais (todas sob `/api`)
 
 ```
-POST /api/auth/login                      GET  /api/me
+POST /api/auth/login                      GET  /api/auth/providers
+GET  /api/auth/oidc/login                 GET  /api/auth/oidc/callback
+GET  /api/me
 GET  /api/conversations/current           GET  /api/conversations/:id
 POST /api/conversations/:id/messages      GET  /api/conversations/:id/stream (SSE)
 POST /api/conversations/:id/drafts/:draftId/confirm | /cancel
@@ -198,11 +245,27 @@ GET  /api/console/users/:userId/tickets
 GET  /health (fora do /api, p/ healthcheck de plataforma)
 ```
 
-## Com mais tempo (roadmap)
+## Roadmap — entregue ✅
 
-- **Embeddings na central de ajuda** + avaliação de relevância por cenário.
-- **Telemetria de tokens/custo** por turno do Mastra na meta da mensagem.
-- **Escalonamento automático** por SLA vencido (job que re-transfere para N2).
-- **SSO real** (OIDC) no lugar do cookie de sessão — a fronteira de guards
-  já está isolada.
-- **A11y auditada** (axe) e testes de UI com Playwright.
+- **Embeddings na central de ajuda** — busca híbrida lexical+vetorial local
+  (`services/embeddings.ts`), avaliação de relevância por cenário em
+  `eval/helpEval.ts` (hit@3 100% vs 91% lexical → `EVAL.md`).
+- **Telemetria de tokens/custo** — `agent/telemetry.ts` normaliza o
+  `stream.usage` do Mastra (input/output/cached/reasoning) e estima USD por
+  modelo; vai na `meta` da mensagem e aparece no console do analista.
+- **Escalonamento automático por SLA** — `services/escalation.ts`: job que
+  re-transfere para N2 (chamado vencido ou espera > limite), com mensagem de
+  sistema, auditoria no chamado e SSE; fila N1/N2 visível no console.
+- **SSO real (OIDC)** — `services/oidc.ts`: discovery + Authorization Code +
+  PKCE + JWKS/RS256-ES512 sem dependência, rotas `/auth/oidc/login|callback`
+  e `/auth/providers`, botão na tela de login, testes com IdP fake (RSA).
+  O cookie de sessão segue sendo a fronteira dos guards — o OIDC substitui
+  a verificação de senha.
+- **A11y auditada + UI** — `e2e/` com Playwright: 10 specs (login, chat com
+  confirmação de chamado, console, axe nas 3 telas, zero violações) + CI.
+
+### Próximos passos possíveis
+
+- Embeddings semânticos reais (modelo externo) atrás da mesma interface.
+- Provisionamento SCIM para criar usuários a partir do IdP.
+- Rotação/revogação de sessões e refresh tokens OIDC.

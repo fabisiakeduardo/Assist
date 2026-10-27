@@ -179,3 +179,11 @@ export const IconPause = (p: P) => (
     <rect x="13.5" y="5" width="3.5" height="14" rx="1" />
   </S>
 );
+
+export const IconBadge = (p: P) => (
+  <S {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="3" />
+    <circle cx="9" cy="11" r="2" />
+    <path d="M14.5 10h4M14.5 13h4M7 16.5h10" />
+  </S>
+);

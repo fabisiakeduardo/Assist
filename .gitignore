@@ -18,3 +18,8 @@ apps/api/data/
 .DS_Store
 Thumbs.db
 *.log
+
+# playwright / e2e
+test-results/
+playwright-report/
+blob-report/

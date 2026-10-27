@@ -139,13 +139,16 @@ export async function opSearchHelp(
 ): Promise<OpResult<HelpHitDto[]>> {
   const t0 = performance.now();
   const hits = services.help.search(query, 3);
+  const top = hits[0];
+  const step = withMs(STEPS.searchHelp(), t0);
+  step.detail = top ? `${top.article.id} · ${top.article.title}` : "nenhum artigo relevante";
   return ok(
     hits.map((h) => ({
       id: h.article.id,
       title: h.article.title,
       body: h.article.body,
     })),
-    [withMs(STEPS.searchHelp(), t0)],
+    [step],
   );
 }
 

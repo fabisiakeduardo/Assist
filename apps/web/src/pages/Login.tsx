@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
-import { ApiError } from "../api";
+import { api, ApiError } from "../api";
 import {
   IconArrowRight,
+  IconBadge,
   IconCheck,
   IconEye,
   IconEyeOff,
@@ -12,15 +13,38 @@ import {
   IconMail,
 } from "../components/icons";
 
+// códigos de erro que o callback OIDC devolve via ?sso=
+const SSO_ERRORS: Record<string, string> = {
+  state: "A sessão de login expirou — tente entrar pelo SSO de novo.",
+  unknown_user: "Seu e-mail corporativo não tem acesso ao service desk.",
+  access_denied: "Login cancelado no provedor de identidade.",
+};
+
 export function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ssoLabel, setSsoLabel] = useState<string | null>(null);
+  const ssoError = params.get("sso");
+
+  useEffect(() => {
+    let live = true;
+    api
+      .authProviders()
+      .then((p) => {
+        if (live) setSsoLabel(p.oidc?.label ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -41,9 +65,9 @@ export function Login() {
   }
 
   return (
-    <div className="login">
+    <main className="login">
       {/* showcase */}
-      <section className="login-showcase">
+      <div className="login-showcase">
         <div className="login-brand">
           <IconLogo size={24} />
           <span>Nexo Assist</span>
@@ -92,10 +116,10 @@ export function Login() {
             <div className="label">analistas online agora</div>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* formulário */}
-      <section className="login-side">
+      <div className="login-side">
         <div className="login-help">
           <span>Problema para entrar?</span>
           <a href="tel:4000">Ligue no ramal 4000</a>
@@ -171,6 +195,24 @@ export function Login() {
             </button>
 
             {error && <div className="login-error">{error}</div>}
+            {ssoError && (
+              <div className="login-error" role="alert">
+                {SSO_ERRORS[ssoError] ??
+                  "Não foi possível entrar pelo SSO — tente de novo ou use e-mail e senha."}
+              </div>
+            )}
+
+            {ssoLabel && (
+              <>
+                <div className="login-divider">
+                  <span>ou</span>
+                </div>
+                <a className="btn btn-ghost btn-sso" href="/api/auth/oidc/login">
+                  <IconBadge size={16} />
+                  {ssoLabel}
+                </a>
+              </>
+            )}
 
             <div className="login-note">
               Demo: <code>ana.souza@nexo.com.br</code> (funcionária) ·{" "}
@@ -184,7 +226,7 @@ export function Login() {
             Privacidade e uso de dados
           </a>
         </div>
-      </section>
-    </div>
+      </div>
+    </main>
   );
 }

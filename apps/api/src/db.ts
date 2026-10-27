@@ -48,6 +48,14 @@ function migrate(d: DatabaseSync): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- estados temporários do fluxo OIDC (state → nonce + PKCE verifier)
+    CREATE TABLE IF NOT EXISTS oidc_states (
+      state TEXT PRIMARY KEY,
+      nonce TEXT NOT NULL,
+      verifier TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id),
@@ -147,5 +155,11 @@ function migrate(d: DatabaseSync): void {
   const userCols = d.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
   if (!userCols.some((c) => c.name === "password_hash")) {
     d.exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+  }
+
+  // migração incremental: telemetria (tokens/custo) na meta da mensagem
+  const msgCols = d.prepare("PRAGMA table_info(messages)").all() as Array<{ name: string }>;
+  if (!msgCols.some((c) => c.name === "meta")) {
+    d.exec("ALTER TABLE messages ADD COLUMN meta TEXT");
   }
 }

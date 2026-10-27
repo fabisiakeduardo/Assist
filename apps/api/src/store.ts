@@ -7,6 +7,7 @@ import type {
   ConversationStatus,
   HelpArticle,
   Message,
+  MessageMeta,
   MessageSender,
   QueueLevel,
   Ticket,
@@ -61,6 +62,7 @@ function toTicket(r: Record<string, unknown>): Ticket {
 function toMessage(r: Record<string, unknown>): Message {
   const steps = r.steps as string | null;
   const card = r.card as string | null;
+  const meta = r.meta as string | null;
   return {
     id: r.id as string,
     conversationId: r.conversation_id as string,
@@ -69,6 +71,7 @@ function toMessage(r: Record<string, unknown>): Message {
     text: r.text as string,
     steps: steps ? (JSON.parse(steps) as AgentStep[]) : null,
     cards: card ? (JSON.parse(card) as CardPayload[]) : null,
+    meta: meta ? (JSON.parse(meta) as MessageMeta) : null,
     createdAt: r.created_at as string,
   };
 }
@@ -186,6 +189,24 @@ export class Store {
     this.db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
   }
 
+  // estados do fluxo OIDC (vida curta — consumidos uma vez)
+  createOidcState(state: string, nonce: string, verifier: string): void {
+    this.db
+      .prepare("INSERT INTO oidc_states (state,nonce,verifier) VALUES (?,?,?)")
+      .run(state, nonce, verifier);
+  }
+
+  /** Consome o state (apaga) e devolve nonce+verifier; expira em 10 min. */
+  consumeOidcState(state: string): { nonce: string; verifier: string } | null {
+    this.db
+      .prepare("DELETE FROM oidc_states WHERE created_at < datetime('now', '-10 minutes')")
+      .run();
+    const r = this.db
+      .prepare("DELETE FROM oidc_states WHERE state = ? RETURNING nonce, verifier")
+      .get(state) as { nonce: string; verifier: string } | undefined;
+    return r ?? null;
+  }
+
   // conversas
   createConversation(userId: string): Conversation {
     const cid = id();
@@ -300,14 +321,15 @@ export class Store {
     text: string;
     steps?: AgentStep[] | null;
     cards?: CardPayload[] | null;
+    meta?: MessageMeta | null;
     createdAt?: string;
   }): Message {
     const mid = id();
     const created = input.createdAt ?? now();
     this.db
       .prepare(
-        `INSERT INTO messages (id,conversation_id,sender,sender_id,text,steps,card,created_at)
-         VALUES (?,?,?,?,?,?,?,?)`,
+        `INSERT INTO messages (id,conversation_id,sender,sender_id,text,steps,card,meta,created_at)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
       )
       .run(
         mid,
@@ -317,6 +339,7 @@ export class Store {
         input.text,
         input.steps ? JSON.stringify(input.steps) : null,
         input.cards ? JSON.stringify(input.cards) : null,
+        input.meta ? JSON.stringify(input.meta) : null,
         created,
       );
     this.touchConversation(input.conversationId);

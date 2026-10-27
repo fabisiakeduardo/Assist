@@ -9,6 +9,7 @@ import { HelpCenter } from "../src/services/helpCenter.js";
 import { ScriptedEngine } from "../src/agent/scripted.js";
 import type { AgentResult, AgentServices } from "../src/agent/engine.js";
 import { SCENARIOS, type Scenario, type TurnExpect } from "./scenarios.js";
+import { helpEvalMarkdown } from "./helpEval.js";
 
 // ─── Runner de avaliação ─────────────────────────────────────────────────────
 // Executa os cenários contra o ScriptedEngine (determinístico — sem LLM, sem
@@ -137,7 +138,8 @@ transparência, cards e efeitos colaterais no banco.
 ${rows}
 
 **${passed}/${results.length} cenários passando.**
-`;
+
+${helpEvalMarkdown()}`;
 
 writeFileSync(REPORT, md);
 console.log(`relatório → ${path.relative(process.cwd(), REPORT)}`);

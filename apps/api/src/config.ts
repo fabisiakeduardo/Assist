@@ -29,6 +29,7 @@ function num(name: string, fallback: number): number {
 }
 
 export type AgentEngineKind = "auto" | "mastra" | "scripted";
+export type HelpSearchMode = "hybrid" | "vector" | "lexical";
 
 export const config = {
   port: num("PORT", 4100),
@@ -49,7 +50,29 @@ export const config = {
    * é verificada de verdade.
    */
   authAnyPassword: (process.env.AUTH_ANY_PASSWORD ?? "true") !== "false",
+  /**
+   * Busca da central de ajuda: "hybrid" (embeddings + lexical — padrão),
+   * "vector" (só embeddings locais) ou "lexical" (modo legado p/ comparação).
+   */
+  helpSearchMode: (process.env.HELP_SEARCH_MODE ?? "hybrid") as HelpSearchMode,
+  /** Intervalo do job de escalonamento (segundos). */
+  escalationIntervalSec: num("ESCALATION_INTERVAL_SEC", 30),
+  /** Espera máxima em `waiting_analyst` antes de escalar para N2 (minutos). */
+  escalationWaitMinutes: num("ESCALATION_WAIT_MINUTES", 60),
+  /** SSO corporativo — habilitado quando OIDC_ISSUER + OIDC_CLIENT_ID estão set. */
+  oidc: {
+    issuer: process.env.OIDC_ISSUER ?? "",
+    clientId: process.env.OIDC_CLIENT_ID ?? "",
+    clientSecret: process.env.OIDC_CLIENT_SECRET || undefined,
+    redirectUri:
+      process.env.OIDC_REDIRECT_URI ??
+      `http://localhost:${num("PORT", 4100)}/api/auth/oidc/callback`,
+    scopes: process.env.OIDC_SCOPES ?? "openid email profile",
+    label: process.env.OIDC_LABEL ?? "Entrar com SSO corporativo",
+  },
 } as const;
+
+export const oidcEnabled = Boolean(config.oidc.issuer && config.oidc.clientId);
 
 export function hasLlmKey(): boolean {
   const model = config.llmModel;

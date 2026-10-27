@@ -6,6 +6,7 @@ import type {
   CardPayload,
   Conversation,
   Message,
+  MessageMeta,
   RealtimeEvent,
   User,
 } from "../domain/types.js";
@@ -46,6 +47,8 @@ export interface AgentResult {
   steps: AgentStep[];
   /** Cards renderizados junto à resposta (ex.: rascunho + opções). */
   cards?: CardPayload[];
+  /** Telemetria do turno (tokens/custo) — persistida na meta da mensagem. */
+  meta?: MessageMeta;
 }
 
 export interface AgentEngine {

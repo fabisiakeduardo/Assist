@@ -1,6 +1,6 @@
 # Avaliação do agent (`npm run eval`)
 
-> Gerado em 2026-10-27 19:41 UTC · engine `scripted` (determinístico, sem LLM).
+> Gerado em 2026-10-27 21:33 UTC · engine `scripted` (determinístico, sem LLM).
 
 Cada cenário simula uma conversa real do funcionário contra a stack completa
 (store + TicketService + HelpCenter + engine) e verifica texto, passos de
@@ -21,3 +21,24 @@ transparência, cards e efeitos colaterais no banco.
 | `win11-809` | Windows 11 + erro 809 não oferece artigo do Win10 | filtro de aplicabilidade da central — o artigo só cobre Windows 10 | ✅ passa |
 
 **11/11 cenários passando.**
+
+## Relevância da central de ajuda (embeddings)
+
+Dataset de 22 consultas em 10 cenários (eval/helpDataset.ts), com
+paráfrases propositais. Métricas: **hit@1 / hit@3 / MRR** — o modo `hybrid`
+combina embeddings locais (feature hashing + IDF, services/embeddings.ts) com
+o score lexical; `lexical` é o modo anterior (`HELP_SEARCH_MODE=lexical`).
+
+| Cenário | Tema | Consultas | lexical | hybrid |
+| --- | --- | --- | --- | --- |
+| `vpn-809` | VPN / erro 809 | 3 | 100% / 100% / 1.00 | 100% / 100% / 1.00 |
+| `horario` | Horário de atendimento | 2 | 100% / 100% / 1.00 | 100% / 100% / 1.00 |
+| `senha` | Senha bloqueada / esquecida | 3 | 67% / 67% / 0.67 | 67% / 100% / 0.83 |
+| `lento` | Notebook lento pós-update | 2 | 50% / 50% / 0.50 | 50% / 100% / 0.75 |
+| `wifi` | Wi-Fi corporativo | 2 | 50% / 100% / 0.75 | 100% / 100% / 1.00 |
+| `outlook-cel` | Outlook no celular | 2 | 50% / 100% / 0.75 | 100% / 100% / 1.00 |
+| `pedido` | Pedido de equipamento/software | 2 | 100% / 100% / 1.00 | 100% / 100% / 1.00 |
+| `impressora` | Impressora | 2 | 100% / 100% / 1.00 | 100% / 100% / 1.00 |
+| `sap` | Acesso ao SAP | 2 | 100% / 100% / 1.00 | 100% / 100% / 1.00 |
+| `quarentena` | E-mail na quarentena | 2 | 100% / 100% / 1.00 | 100% / 100% / 1.00 |
+| **TOTAL** | — | 22 | 82% / 91% / 0.86 | 91% / 100% / 0.95 |

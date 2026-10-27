@@ -73,9 +73,9 @@ export function Console() {
   const active = items.find((c) => c.id === activeId) ?? null;
 
   return (
-    <div className={`console ${panelOpen && active ? "with-panel" : ""}`}>
+    <main className={`console ${panelOpen && active ? "with-panel" : ""}`}>
       {/* rail */}
-      <aside className="rail">
+      <nav className="rail" aria-label="Navegação do console">
         <div className="logo">
           <IconLogo size={22} />
         </div>
@@ -95,10 +95,10 @@ export function Console() {
         >
           <IconLogout size={17} />
         </button>
-      </aside>
+      </nav>
 
       {/* lista */}
-      <section className="chat-list">
+      <section className="chat-list" aria-label="Lista de conversas">
         <div className="cl-head">
           <div className="cl-title-row">
             <h1>Conversas</h1>
@@ -179,7 +179,7 @@ export function Console() {
 
       {/* painel de chamados */}
       {panelOpen && active && <TicketPanel key={`tp-${active.id}`} conv={active} />}
-    </div>
+    </main>
   );
 }
 
@@ -217,7 +217,11 @@ function ConversationItemSkeleton() {
 
 function tagFor(c: ConsoleConversation, me?: PublicUser | null) {
   if (c.status === "waiting_analyst") {
-    return { cls: "danger", dot: "var(--danger)", label: `Transferida${c.ticketId ? ` · ${c.ticketId}` : ""}` };
+    return {
+      cls: "danger",
+      dot: "var(--danger)",
+      label: `Transferida${c.queue ? ` ${c.queue}` : ""}${c.ticketId ? ` · ${c.ticketId}` : ""}`,
+    };
   }
   if (c.status === "with_analyst") {
     const mine = me && c.analystId === me.id;
@@ -505,6 +509,7 @@ function ConsoleMessage({ m, analystName }: { m: Message; analystName: string })
     );
   }
   if (m.sender === "agent") {
+    const u = m.meta?.usage;
     return (
       <div className="cm agent-msg">
         <div className="sender-row">
@@ -517,7 +522,13 @@ function ConsoleMessage({ m, analystName }: { m: Message; analystName: string })
           </div>
         ) : null}
         <div className="bubble">{m.text}</div>
-        <div className="m-meta">{fmtTime(m.createdAt)}</div>
+        <div className="m-meta">
+          {fmtTime(m.createdAt)}
+          {u
+            ? ` · ${u.totalTokens.toLocaleString("pt-BR")} tok` +
+              (m.meta?.costUsd !== undefined ? ` · ~$${m.meta.costUsd.toFixed(4)}` : "")
+            : ""}
+        </div>
       </div>
     );
   }

@@ -28,6 +28,21 @@ export type CardPayload =
 
 export type MessageSender = "user" | "agent" | "analyst" | "system";
 
+export interface TurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
+}
+
+export interface MessageMeta {
+  engine?: string;
+  model?: string;
+  usage?: TurnUsage;
+  costUsd?: number;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -36,6 +51,7 @@ export interface Message {
   text: string;
   steps: AgentStep[] | null;
   cards: CardPayload[] | null;
+  meta: MessageMeta | null;
   createdAt: string;
 }
 

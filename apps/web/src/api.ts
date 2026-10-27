@@ -49,6 +49,8 @@ export const api = {
   login: (email: string, password: string) =>
     post<{ user: PublicUser }>("/auth/login", { email, password }),
   logout: () => post<{ ok: true }>("/auth/logout"),
+  authProviders: () =>
+    req<{ password: boolean; oidc: { label: string } | null }>("/auth/providers"),
   me: () => req<{ user: PublicUser; usage: Usage; engine: string }>("/me"),
 
   currentConversation: () =>

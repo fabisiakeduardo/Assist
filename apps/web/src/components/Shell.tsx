@@ -57,7 +57,7 @@ export function TopBar({ here, right }: { here: string; right?: React.ReactNode 
       <div className="crumbs">
         <span className="root">Service desk de TI</span>
         <span className="sep">/</span>
-        <span className="here">{here}</span>
+        <h1 className="here">{here}</h1>
       </div>
       {right}
     </header>

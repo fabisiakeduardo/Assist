@@ -54,9 +54,13 @@ export class AgentRunner {
         text: result.text,
         steps: result.steps,
         cards: result.cards ?? null,
+        // telemetria do turno (engine + tokens/custo quando o LLM reporta)
+        meta: { engine: this.engine.kind, ...(result.meta ?? {}) },
       });
       emit({ type: "agent_end", conversationId: conversation.id, messageId: streamMessageId });
       this.hub.publish({ type: "message", conversationId: conversation.id, message });
+      // o turno pode mudar status/contexto/rascunho — a UI refaz o fetch
+      this.hub.publish({ type: "conversation", conversationId: conversation.id });
       return message;
     } catch (err) {
       const message = store.addMessage({

@@ -4,7 +4,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { config } from "../config.js";
 import type { AgentEmit, AgentEngine, AgentResult, AgentServices, AgentTurnInput } from "./engine.js";
-import type { AgentStep, CardPayload } from "../domain/types.js";
+import type { AgentStep, CardPayload, TurnUsage } from "../domain/types.js";
 import {
   cardOptions,
   cardTicket,
@@ -21,6 +21,7 @@ import {
 } from "./tools.js";
 import { stepForTool, STEPS } from "./steps.js";
 import { SYSTEM_PROMPT } from "./prompt.js";
+import { addUsage, estimateCostUsd, toTurnUsage } from "./telemetry.js";
 
 // ─── MastraEngine ────────────────────────────────────────────────────────────
 // O agent de verdade: Mastra Agent + tools sobre os serviços do domínio.
@@ -213,6 +214,11 @@ export class MastraEngine implements AgentEngine {
     // latência por tool: casa tool-call → tool-result pelo toolCallId
     const pendingCalls = new Map<string, { step: AgentStep | null; t0: number }>();
 
+    // telemetria: `stream.usage` dá o total consolidado; guardamos também o
+    // `finish` final e a soma dos `step-finish` como fallback
+    let finishUsage: TurnUsage | undefined;
+    let stepUsage: TurnUsage | undefined;
+
     let text = "";
     for await (const chunk of stream.fullStream) {
       const c = chunk as { type: string; payload?: Record<string, unknown> };
@@ -240,14 +246,39 @@ export class MastraEngine implements AgentEngine {
         }
       } else if (c.type === "tool-error") {
         emitStep(STEPS.legacyDown());
+      } else if (c.type === "finish") {
+        const p = c.payload as { output?: { usage?: unknown } };
+        finishUsage = toTurnUsage(p?.output?.usage) ?? finishUsage;
+      } else if (c.type === "step-finish") {
+        const p = c.payload as {
+          output?: { usage?: unknown };
+          usage?: unknown;
+          totalUsage?: unknown;
+        };
+        const u = toTurnUsage(p?.output?.usage) ?? toTurnUsage(p?.usage) ?? toTurnUsage(p?.totalUsage);
+        if (u) stepUsage = stepUsage ? addUsage(stepUsage, u) : u;
       }
     }
+
+    const usage =
+      (await Promise.resolve()
+        .then(() => stream.usage as unknown)
+        .then(toTurnUsage)
+        .catch(() => undefined)) ??
+      finishUsage ??
+      stepUsage;
+    const costUsd = usage ? estimateCostUsd(config.llmModel, usage) : undefined;
 
     const lastTool = toolNames[toolNames.length - 1] ?? "";
     return {
       text: text.trim() || fallbackText(lastTool),
       steps: dedupeSteps(steps),
       ...(collectedCards.length ? { cards: collectedCards } : {}),
+      meta: {
+        model: config.llmModel,
+        ...(usage ? { usage } : {}),
+        ...(costUsd !== undefined ? { costUsd } : {}),
+      },
     };
   }
 }

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fastifyStatic from "@fastify/static";
-import { config, hasLlmKey } from "./config.js";
+import { config, hasLlmKey, oidcEnabled } from "./config.js";
 import { getDb } from "./db.js";
 import { Store } from "./store.js";
 import { seed } from "./seed.js";
@@ -10,6 +10,8 @@ import { TicketService } from "./services/ticketService.js";
 import { HelpCenter } from "./services/helpCenter.js";
 import { RealtimeHub } from "./realtime.js";
 import { AgentRunner } from "./services/runner.js";
+import { EscalationJob } from "./services/escalation.js";
+import { OidcClient } from "./services/oidc.js";
 import { ScriptedEngine } from "./agent/scripted.js";
 import { MastraEngine } from "./agent/mastra.js";
 import { buildServer } from "./server.js";
@@ -36,12 +38,19 @@ const engine =
 
 const runner = new AgentRunner({ store, tickets, help }, engine, hub);
 
+// job de escalonamento: conversas aguardando analista com SLA vencido sobem p/ N2
+const escalation = new EscalationJob(store, hub);
+escalation.start();
+
+// SSO corporativo — ativo quando OIDC_ISSUER + OIDC_CLIENT_ID estão configurados
+const oidc = oidcEnabled ? new OidcClient(config.oidc) : undefined;
+
 const app = await buildServer({ store });
 
 // API inteira sob /api — dev (proxy do Vite) e produção usam o mesmo caminho
 await app.register(
   async (api) => {
-    registerRoutes(api, { store, tickets, help, runner, hub, engineKind });
+    registerRoutes(api, { store, tickets, help, runner, hub, engineKind, oidc });
   },
   { prefix: "/api" },
 );
@@ -63,6 +72,7 @@ try {
   await app.listen({ port: config.port, host: config.host });
   console.log(`[nexo-api] ouvindo em http://localhost:${config.port}`);
   console.log(`[nexo-api] engine do agent: ${engineKind}${engineKind === "mastra" ? ` (${config.llmModel})` : ""}`);
+  console.log(`[nexo-api] sso (oidc): ${oidcEnabled ? config.oidc.issuer : "desligado"}`);
   console.log(`[nexo-api] banco: ${config.databaseFile}`);
 } catch (err) {
   console.error(err);

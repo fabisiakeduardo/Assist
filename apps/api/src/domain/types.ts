@@ -130,6 +130,27 @@ export type CardPayload =
   | { type: "draft"; draftId: string }
   | { type: "options"; options: string[] };
 
+/** Tokens usados num turno do LLM (soma dos steps do engine Mastra). */
+export interface TurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
+}
+
+/** Telemetria da mensagem — preenchida nas respostas do agent. */
+export interface MessageMeta {
+  /** Engine que gerou a resposta ("mastra" | "scripted"). */
+  engine?: string;
+  /** Modelo do LLM (só Mastra). */
+  model?: string;
+  /** Tokens consumidos no turno (só Mastra). */
+  usage?: TurnUsage;
+  /** Custo estimado do turno em USD (tabela agent/pricing + overrides de env). */
+  costUsd?: number;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -139,6 +160,8 @@ export interface Message {
   steps: AgentStep[] | null;
   /** Cards renderizados junto à resposta (card de chamado, seletor, rascunho, opções). */
   cards: CardPayload[] | null;
+  /** Telemetria (tokens/custo/engine) — agent com LLM a preenche por turno. */
+  meta: MessageMeta | null;
   createdAt: string;
 }
 
